@@ -104,7 +104,15 @@ class Enemy(pygame.sprite.Sprite):
             try:
                 path = IMG_ENEMIES_DIR / filename
                 img = pygame.image.load(str(path)).convert_alpha()
-                self.images[key] = pygame.transform.scale(img, (self.width, self.height))
+                # Pour l'attaque et dead, garder les proportions
+                if key in ("attack", "dead"):
+                    original_width, original_height = img.get_size()
+                    ratio = self.height / original_height
+                    new_width = int(original_width * ratio)
+                    img = pygame.transform.scale(img, (new_width, self.height))
+                else:
+                    img = pygame.transform.scale(img, (self.width, self.height))
+                self.images[key] = img
             except (pygame.error, FileNotFoundError):
                 self.images[key] = None
 
@@ -131,7 +139,7 @@ class Enemy(pygame.sprite.Sprite):
 
         return img
 
-    def update(self, dt, player_rect, platforms=None):
+    def update(self, dt, player_rect, platforms=None, other_enemies=None):
         """Met a jour l'ennemi"""
         dt_ms = dt * 1000
 
@@ -166,6 +174,23 @@ class Enemy(pygame.sprite.Sprite):
                         self.velocity_y = 0
                         self.on_ground = True
 
+        # Verifier si un autre ennemi est trop proche (pour eviter l'oscillation)
+        blocked_left = False
+        blocked_right = False
+        if other_enemies:
+            for other in other_enemies:
+                if other is self or other.is_dead:
+                    continue
+                # Distance entre les deux ennemis
+                dist = abs(self.rect.centerx - other.rect.centerx)
+                min_dist = (self.rect.width + other.rect.width) // 2 + 15
+                if dist < min_dist:
+                    # Bloquer le mouvement vers l'autre ennemi
+                    if other.rect.centerx < self.rect.centerx:
+                        blocked_left = True
+                    else:
+                        blocked_right = True
+
         # Determiner l'etat
         old_state = self.state
         is_moving = False
@@ -178,15 +203,19 @@ class Enemy(pygame.sprite.Sprite):
                 # Zone morte: si le joueur est trop proche horizontalement, ne pas bouger
                 # Evite l'effet "toupie" quand le joueur est au-dessus
                 if dist_to_player_x > 25:
-                    # Poursuit le joueur
+                    # Poursuit le joueur (sauf si bloque par un autre ennemi)
                     if player_rect.centerx < self.rect.centerx:
-                        self.rect.x -= self.speed
+                        if not blocked_left:
+                            self.rect.x -= self.speed
+                            is_moving = True
                         self.facing_right = False
                     else:
-                        self.rect.x += self.speed
+                        if not blocked_right:
+                            self.rect.x += self.speed
+                            is_moving = True
                         self.facing_right = True
-                    is_moving = True
-                    self.state = "run"
+                    if is_moving:
+                        self.state = "run"
                 else:
                     # Trop proche horizontalement, s'arreter et regarder le joueur
                     self.facing_right = player_rect.centerx > self.rect.centerx
@@ -196,13 +225,17 @@ class Enemy(pygame.sprite.Sprite):
                 if dist_to_player_x < 80:
                     self.state = "attack"
             else:
-                # Patrouille
-                self.rect.x += self.speed * self.patrol_direction
+                # Patrouille (sauf si bloque)
+                move_dir = self.speed * self.patrol_direction
+                can_move = (move_dir < 0 and not blocked_left) or (move_dir > 0 and not blocked_right)
+                if can_move:
+                    self.rect.x += move_dir
+                    is_moving = True
                 if abs(self.rect.x - self.start_x) > self.patrol_distance:
                     self.patrol_direction *= -1
                     self.facing_right = self.patrol_direction > 0
-                is_moving = True
-                self.state = "run"
+                if is_moving:
+                    self.state = "run"
         else:
             self.state = "idle"
 
@@ -305,7 +338,15 @@ class Boss(pygame.sprite.Sprite):
             try:
                 path = IMG_ENEMIES_DIR / filename
                 img = pygame.image.load(str(path)).convert_alpha()
-                self.images[key] = pygame.transform.scale(img, (BOSS_WIDTH, BOSS_HEIGHT))
+                # Pour l'attaque, garder les proportions (hauteur fixe, largeur proportionnelle)
+                if key == "attack":
+                    original_width, original_height = img.get_size()
+                    ratio = BOSS_HEIGHT / original_height
+                    new_width = int(original_width * ratio)
+                    img = pygame.transform.scale(img, (new_width, BOSS_HEIGHT))
+                else:
+                    img = pygame.transform.scale(img, (BOSS_WIDTH, BOSS_HEIGHT))
+                self.images[key] = img
             except (pygame.error, FileNotFoundError):
                 self.images[key] = None
 
@@ -421,7 +462,8 @@ class Boss(pygame.sprite.Sprite):
     def draw(self, screen, camera_x):
         """Dessine le boss avec effets"""
         img = self.image
-        if self.facing_right:
+        # L'image de base regarde a droite, donc flip si le boss regarde a gauche
+        if not self.facing_right:
             img = pygame.transform.flip(img, True, False)
 
         # Flash blanc si touche

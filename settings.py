@@ -160,13 +160,13 @@ BOSS_PHASE_3_THRESHOLD = 0.3  # 30% vie
 PICKUP_NOTE_SCORE = 50
 PICKUP_MEDIATOR_ULTIMATE = 25  # Charge ultime
 PICKUP_AMPLI_DURATION = 5000  # ms de boost
-PICKUP_WIDTH = 32
-PICKUP_HEIGHT = 32
+PICKUP_WIDTH = 52
+PICKUP_HEIGHT = 52
 
 # =============================================================================
 # NIVEAUX
 # =============================================================================
-LEVEL_NAMES = ["Coulisses", "Scene", "Boss Arena"]
+LEVEL_NAMES = ["Centre-ville", "Scene", "Boss Arena"]
 
 # Checkpoints (positions X pour chaque niveau)
 CHECKPOINT_POSITIONS = {

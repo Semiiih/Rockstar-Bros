@@ -30,8 +30,12 @@ class Player(pygame.sprite.Sprite):
         self.images = {}
         self._load_images()
 
-        # Sprite de base
-        self.image = self._get_placeholder((PLAYER_WIDTH, PLAYER_HEIGHT), PURPLE)
+        # Sprite de base - utiliser l'image idle si disponible
+        idle_img = self.images.get("idle")
+        if idle_img:
+            self.image = idle_img
+        else:
+            self.image = self._get_placeholder((PLAYER_WIDTH, PLAYER_HEIGHT), PURPLE)
         self.rect = self.image.get_rect(midbottom=(x, y))
 
         # Physique
@@ -89,7 +93,14 @@ class Player(pygame.sprite.Sprite):
             try:
                 path = IMG_PLAYER_DIR / filename
                 img = pygame.image.load(str(path)).convert_alpha()
-                img = pygame.transform.scale(img, (PLAYER_WIDTH, PLAYER_HEIGHT))
+                # Pour l'attaque, garder les proportions (hauteur fixe, largeur proportionnelle)
+                if key == "attack":
+                    original_width, original_height = img.get_size()
+                    ratio = PLAYER_HEIGHT / original_height
+                    new_width = int(original_width * ratio)
+                    img = pygame.transform.scale(img, (new_width, PLAYER_HEIGHT))
+                else:
+                    img = pygame.transform.scale(img, (PLAYER_WIDTH, PLAYER_HEIGHT))
                 # Flipper l'image crouch car elle est orientee dans l'autre sens
                 if key == "crouch":
                     img = pygame.transform.flip(img, True, False)

@@ -218,9 +218,9 @@ class MenuScene(Scene):
 
         # Instructions
         instructions = self.font_small.render(
-            "Fleches pour naviguer - Entree pour valider", True, GRAY
+            "Fleches pour naviguer - Entree pour valider", True, WHITE
         )
-        inst_rect = instructions.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        inst_rect = instructions.get_rect(center=(WIDTH // 2, HEIGHT - 150))
         screen.blit(instructions, inst_rect)
 
     def _draw_character_select(self, screen):
@@ -231,21 +231,21 @@ class MenuScene(Scene):
         screen.blit(title_text, title_rect)
 
         # Personnage 1
-        p1_x = WIDTH // 4
+        p1_x = WIDTH // 3
         p1_y = HEIGHT // 2
         self._draw_character_option(screen, 1, p1_x, p1_y, self.player1_img, "Axel")
 
         # Personnage 2
-        p2_x = (WIDTH // 4) * 3
+        p2_x = (WIDTH // 5) * 3
         p2_y = HEIGHT // 2
         self._draw_character_option(screen, 2, p2_x, p2_y, self.player2_img, "Luna")
 
         # Instructions
         instructions = self.font_small.render(
             "Gauche/Droite pour choisir - Entree pour valider - Echap pour retour",
-            True, GRAY
+            True, WHITE
         )
-        inst_rect = instructions.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        inst_rect = instructions.get_rect(center=(WIDTH // 2, HEIGHT - 100))
         screen.blit(instructions, inst_rect)
 
     def _draw_character_option(self, screen, char_num, x, y, image, name):
