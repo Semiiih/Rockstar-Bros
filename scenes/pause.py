@@ -7,7 +7,8 @@ import pygame
 from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, GRAY, BLACK,
-    STATE_GAMEPLAY, STATE_MENU, CONTROLS
+    STATE_GAMEPLAY, STATE_MENU, CONTROLS,
+    IMG_DIR, IMG_PAUSE
 )
 
 
@@ -23,7 +24,8 @@ class PauseScene(Scene):
         self.selected_option = 0
         self.options = ["Reprendre", "Menu Principal"]
 
-        # Capture de l'ecran de jeu pour le fond
+        # Background pause
+        self.background = None
         self.game_screenshot = None
 
     def enter(self, **kwargs):
@@ -34,8 +36,15 @@ class PauseScene(Scene):
 
         self.selected_option = 0
 
-        # Capturer l'ecran actuel
-        self.game_screenshot = self.game.screen.copy()
+        # Charger l'image de pause
+        try:
+            bg_path = IMG_DIR / IMG_PAUSE
+            self.background = pygame.image.load(str(bg_path)).convert()
+            self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
+        except (pygame.error, FileNotFoundError):
+            self.background = None
+            # Fallback: capturer l'ecran actuel
+            self.game_screenshot = self.game.screen.copy()
 
     def handle_event(self, event):
         """Gere les evenements du menu pause"""
@@ -63,14 +72,15 @@ class PauseScene(Scene):
 
     def draw(self, screen):
         """Dessine le menu pause"""
-        # Fond: screenshot du jeu assombri
-        if self.game_screenshot:
+        # Background
+        if self.background:
+            screen.blit(self.background, (0, 0))
+        elif self.game_screenshot:
+            # Fallback: screenshot du jeu assombri
             screen.blit(self.game_screenshot, (0, 0))
-
-        # Overlay sombre
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
-        screen.blit(overlay, (0, 0))
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            screen.blit(overlay, (0, 0))
 
         # Cadre central
         frame_width = 400

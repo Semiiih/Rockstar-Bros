@@ -8,7 +8,8 @@ import math
 from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, GREEN, PURPLE, GRAY,
-    STATE_MENU, CONTROLS
+    STATE_MENU, CONTROLS,
+    IMG_DIR, IMG_WIN
 )
 
 
@@ -27,6 +28,7 @@ class VictoryScene(Scene):
 
         self.final_score = 0
         self.animation_timer = 0
+        self.background = None
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans la victoire"""
@@ -38,6 +40,14 @@ class VictoryScene(Scene):
         self.selected_option = 0
         self.final_score = self.game.game_data.get("score", 0)
         self.animation_timer = 0
+
+        # Charger l'image de victoire
+        try:
+            bg_path = IMG_DIR / IMG_WIN
+            self.background = pygame.image.load(str(bg_path)).convert()
+            self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
+        except (pygame.error, FileNotFoundError):
+            self.background = None
 
     def handle_event(self, event):
         """Gere les evenements"""
@@ -51,8 +61,12 @@ class VictoryScene(Scene):
 
     def draw(self, screen):
         """Dessine l'ecran de victoire"""
-        # Fond avec effet de celebration
-        self._draw_celebration_bg(screen)
+        # Background
+        if self.background:
+            screen.blit(self.background, (0, 0))
+        else:
+            # Fallback: fond avec effet de celebration
+            self._draw_celebration_bg(screen)
 
         # Titre VICTOIRE avec effet de pulsation
         pulse = 1.0 + math.sin(self.animation_timer * 5) * 0.1

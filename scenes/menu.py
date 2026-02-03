@@ -8,7 +8,7 @@ from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, GRAY, PURPLE, ORANGE,
     STATE_GAMEPLAY, CONTROLS,
-    IMG_BG_DIR, IMG_BG_MENU, IMG_PLAYER_DIR,
+    IMG_DIR, IMG_HOME, IMG_PLAYER_DIR,
     IMG_PLAYER1_IDLE, IMG_PLAYER2_IDLE,
     PLAYER_WIDTH, PLAYER_HEIGHT,
     SND_DIR, SND_MUSIC_MENU
@@ -54,9 +54,9 @@ class MenuScene(Scene):
 
     def _load_images(self):
         """Charge les images du menu"""
-        # Background
+        # Background (home.png)
         try:
-            bg_path = IMG_BG_DIR / IMG_BG_MENU
+            bg_path = IMG_DIR / IMG_HOME
             self.background = pygame.image.load(str(bg_path)).convert()
             self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
         except (pygame.error, FileNotFoundError):

@@ -235,12 +235,7 @@ class Player(pygame.sprite.Sprite):
                 elif self.velocity_y < 0:
                     self.rect.top = platform.rect.bottom
                     self.velocity_y = 0
-
-        # Sol du niveau
-        if self.rect.bottom >= GROUND_Y:
-            self.rect.bottom = GROUND_Y
-            self.velocity_y = 0
-            self.on_ground = True
+        # Plus de sol invisible - le joueur peut tomber dans le vide!
 
     def _update_animation(self, dt_ms):
         """Met a jour l'animation"""
@@ -411,6 +406,10 @@ class Enemy(pygame.sprite.Sprite):
         self.start_x = x
         self.hit_flash = 0
 
+        # Physique (pour tomber dans les trous)
+        self.velocity_y = 0
+        self.on_ground = False
+
     def _load_image(self):
         """Charge l'image de l'ennemi"""
         try:
@@ -426,7 +425,7 @@ class Enemy(pygame.sprite.Sprite):
         surf.fill(color)
         return surf
 
-    def update(self, dt, player_rect):
+    def update(self, dt, player_rect, platforms=None):
         """Met a jour l'ennemi"""
         dt_ms = dt * 1000
 
@@ -434,23 +433,43 @@ class Enemy(pygame.sprite.Sprite):
         if self.hit_flash > 0:
             self.hit_flash -= dt_ms
 
-        # Distance au joueur
-        dist_to_player = abs(self.rect.centerx - player_rect.centerx)
+        # Appliquer la gravite
+        self.velocity_y += GRAVITY
+        if self.velocity_y > MAX_FALL_SPEED:
+            self.velocity_y = MAX_FALL_SPEED
 
-        if dist_to_player < self.detection_range:
-            # Poursuit le joueur
-            if player_rect.centerx < self.rect.centerx:
-                self.rect.x -= self.speed
-                self.facing_right = False
+        # Mouvement vertical
+        self.rect.y += self.velocity_y
+        self.on_ground = False
+
+        # Collision avec les plateformes
+        if platforms:
+            for platform in platforms:
+                if self.rect.colliderect(platform.rect):
+                    if self.velocity_y > 0:  # Tombe
+                        self.rect.bottom = platform.rect.top
+                        self.velocity_y = 0
+                        self.on_ground = True
+
+        # Mouvement horizontal seulement si au sol
+        if self.on_ground:
+            # Distance au joueur
+            dist_to_player = abs(self.rect.centerx - player_rect.centerx)
+
+            if dist_to_player < self.detection_range:
+                # Poursuit le joueur
+                if player_rect.centerx < self.rect.centerx:
+                    self.rect.x -= self.speed
+                    self.facing_right = False
+                else:
+                    self.rect.x += self.speed
+                    self.facing_right = True
             else:
-                self.rect.x += self.speed
-                self.facing_right = True
-        else:
-            # Patrouille
-            self.rect.x += self.speed * self.patrol_direction
-            if abs(self.rect.x - self.start_x) > self.patrol_distance:
-                self.patrol_direction *= -1
-                self.facing_right = self.patrol_direction > 0
+                # Patrouille
+                self.rect.x += self.speed * self.patrol_direction
+                if abs(self.rect.x - self.start_x) > self.patrol_distance:
+                    self.patrol_direction *= -1
+                    self.facing_right = self.patrol_direction > 0
 
     def take_damage(self, amount):
         """L'ennemi prend des degats"""
@@ -835,19 +854,29 @@ class GameplayScene(Scene):
 
     def _setup_level_1(self):
         """Configure le niveau 1 - Coulisses (tutoriel)"""
-        # Sol principal
-        ground = Platform(0, GROUND_Y, self.level_width, HEIGHT - GROUND_Y + 100, is_ground=True)
-        self.platforms.add(ground)
+        # Sol avec quelques trous (tutoriel)
+        ground_segments = [
+            (0, GROUND_Y, 700),      # Debut
+            (800, GROUND_Y, 500),    # Apres premier trou
+            (1400, GROUND_Y, 600),   # Milieu
+            (2100, GROUND_Y, 900),   # Fin
+        ]
+        for x, y, w in ground_segments:
+            ground = Platform(x, y, w, HEIGHT - GROUND_Y + 100, is_ground=True)
+            self.platforms.add(ground)
 
-        # Plateformes
+        # Plateformes (incluant celles au-dessus des trous)
         platform_positions = [
             (300, 520, 200, 30),
             (600, 450, 150, 30),
+            (720, 550, 100, 30),   # Au-dessus du trou 1
             (900, 380, 180, 30),
             (1200, 480, 200, 30),
+            (1320, 550, 100, 30),  # Au-dessus du trou 2
             (1600, 400, 150, 30),
-            (2000, 520, 200, 30),
+            (2000, 550, 120, 30),  # Au-dessus du trou 3
             (2400, 450, 180, 30),
+            (2700, 520, 150, 30),
         ]
         for x, y, w, h in platform_positions:
             plat = Platform(x, y, w, h)
@@ -1143,10 +1172,13 @@ class GameplayScene(Scene):
             if isinstance(enemy, Boss):
                 enemy.update(dt, self.player.rect, self.boss_projectiles)
             else:
-                enemy.update(dt, self.player.rect)
+                enemy.update(dt, self.player.rect, self.platforms)
 
         # Empecher les ennemis de se chevaucher
         self._resolve_enemy_collisions()
+
+        # Verifier les chutes dans le vide
+        self._check_fall_death()
 
         # Collisions
         self._check_collisions()
@@ -1199,6 +1231,19 @@ class GameplayScene(Scene):
         # Verifier si la sequence est terminee
         if self.ultimate_notes_spawned >= ULTIMATE_NOTE_COUNT and len(self.ultimate_notes) == 0:
             self._finish_ultimate()
+
+    def _check_fall_death(self):
+        """Verifie si des entites sont tombees dans le vide"""
+        fall_limit = HEIGHT + 50  # En dessous de l'ecran
+
+        # Joueur tombe dans le vide
+        if self.player.rect.top > fall_limit:
+            self.player.health = 0  # Mort instantanee
+
+        # Ennemis tombent dans le vide
+        for enemy in list(self.enemies):
+            if enemy.rect.top > fall_limit:
+                enemy.kill()
 
     def _resolve_enemy_collisions(self):
         """Empeche les ennemis de se chevaucher"""

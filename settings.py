@@ -258,6 +258,12 @@ IMG_BG_LEVEL1 = "bg_level1.png"
 IMG_BG_LEVEL2 = "bg_level2.png"
 IMG_BG_BOSS = "bg_boss.png"
 
+# Ecrans speciaux (directement dans images/)
+IMG_HOME = "home.png"
+IMG_GAMEOVER = "gameover.png"
+IMG_PAUSE = "pause.png"
+IMG_WIN = "win.png"
+
 # Plateformes
 IMG_PLATFORM = "platform.png"
 IMG_PLATFORM_SMALL = "platform_small.png"

@@ -7,7 +7,8 @@ import pygame
 from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, RED, GRAY,
-    STATE_GAMEPLAY, STATE_MENU, CONTROLS
+    STATE_GAMEPLAY, STATE_MENU, CONTROLS,
+    IMG_DIR, IMG_GAMEOVER
 )
 
 
@@ -25,6 +26,7 @@ class GameOverScene(Scene):
         self.options = ["Rejouer", "Menu Principal"]
 
         self.final_score = 0
+        self.background = None
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le game over"""
@@ -35,6 +37,14 @@ class GameOverScene(Scene):
 
         self.selected_option = 0
         self.final_score = self.game.game_data.get("score", 0)
+
+        # Charger l'image de game over
+        try:
+            bg_path = IMG_DIR / IMG_GAMEOVER
+            self.background = pygame.image.load(str(bg_path)).convert()
+            self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
+        except (pygame.error, FileNotFoundError):
+            self.background = None
 
     def handle_event(self, event):
         """Gere les evenements"""
@@ -60,13 +70,17 @@ class GameOverScene(Scene):
 
     def draw(self, screen):
         """Dessine l'ecran de game over"""
-        # Fond rouge sombre
-        for y in range(HEIGHT):
-            ratio = y / HEIGHT
-            r = int(40 + ratio * 20)
-            g = int(10 + ratio * 10)
-            b = int(10 + ratio * 10)
-            pygame.draw.line(screen, (r, g, b), (0, y), (WIDTH, y))
+        # Background
+        if self.background:
+            screen.blit(self.background, (0, 0))
+        else:
+            # Fond rouge sombre si pas d'image
+            for y in range(HEIGHT):
+                ratio = y / HEIGHT
+                r = int(40 + ratio * 20)
+                g = int(10 + ratio * 10)
+                b = int(10 + ratio * 10)
+                pygame.draw.line(screen, (r, g, b), (0, y), (WIDTH, y))
 
         # Titre GAME OVER
         title_text = self.font_title.render("GAME OVER", True, RED)
