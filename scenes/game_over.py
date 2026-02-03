@@ -8,7 +8,8 @@ from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, RED, GRAY,
     STATE_GAMEPLAY, STATE_MENU, CONTROLS,
-    IMG_DIR, IMG_GAMEOVER
+    IMG_DIR, IMG_GAMEOVER,
+    FONT_METAL_MANIA, FONT_ROAD_RAGE
 )
 
 
@@ -30,10 +31,17 @@ class GameOverScene(Scene):
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le game over"""
-        self.font_title = pygame.font.Font(None, 96)
-        self.font_menu = pygame.font.Font(None, 48)
-        self.font_score = pygame.font.Font(None, 64)
-        self.font_small = pygame.font.Font(None, 32)
+        # Charger les polices - Metal Mania pour titres, Road Rage pour texte
+        try:
+            self.font_title = pygame.font.Font(str(FONT_METAL_MANIA), 96)
+            self.font_menu = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
+            self.font_score = pygame.font.Font(str(FONT_METAL_MANIA), 64)
+            self.font_small = pygame.font.Font(str(FONT_ROAD_RAGE), 24)
+        except (pygame.error, FileNotFoundError):
+            self.font_title = pygame.font.Font(None, 96)
+            self.font_menu = pygame.font.Font(None, 36)
+            self.font_score = pygame.font.Font(None, 64)
+            self.font_small = pygame.font.Font(None, 24)
 
         self.selected_option = 0
         self.final_score = self.game.game_data.get("score", 0)
@@ -68,6 +76,16 @@ class GameOverScene(Scene):
         """Mise a jour"""
         pass
 
+    def _draw_arrow(self, screen, x, y, color=YELLOW):
+        """Dessine une fleche de selection (triangle)"""
+        arrow_size = 12
+        points = [
+            (x, y - arrow_size // 2),
+            (x, y + arrow_size // 2),
+            (x + arrow_size, y)
+        ]
+        pygame.draw.polygon(screen, color, points)
+
     def draw(self, screen):
         """Dessine l'ecran de game over"""
         # Background
@@ -98,16 +116,14 @@ class GameOverScene(Scene):
 
         # Options
         for i, option in enumerate(self.options):
-            if i == self.selected_option:
-                color = YELLOW
-                prefix = "> "
-            else:
-                color = WHITE
-                prefix = "  "
-
-            text = self.font_menu.render(prefix + option, True, color)
+            color = YELLOW if i == self.selected_option else WHITE
+            text = self.font_menu.render(option, True, color)
             rect = text.get_rect(center=(WIDTH // 2, 450 + i * 60))
             screen.blit(text, rect)
+
+            # Fleche a gauche de l'option selectionnee
+            if i == self.selected_option:
+                self._draw_arrow(screen, rect.left - 25, rect.centery)
 
         # Instructions
         instructions = self.font_small.render(

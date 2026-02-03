@@ -48,6 +48,7 @@ from settings import (
     IMG_PROJECTILE, IMG_BOSS_PROJECTILE,
     IMG_BG_LEVEL1, IMG_BG_LEVEL2, IMG_BG_BOSS,
     IMG_HEART_FULL, IMG_HEART_EMPTY,
+    FONT_METAL_MANIA, FONT_ROAD_RAGE,
     IMG_NOTE, IMG_MEDIATOR, IMG_AMPLI,
     # HUD
     HUD_MARGIN, HUD_HEALTH_SIZE,
@@ -795,10 +796,18 @@ class GameplayScene(Scene):
         # Affichage des degats
         self.damage_numbers = []  # Liste: {"x", "y", "damage", "timer", "color"}
 
+        # Animation timer pour effets visuels
+        self.animation_time = 0
+
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
-        self.font = pygame.font.Font(None, 32)
-        self.font_big = pygame.font.Font(None, 48)
+        # Charger les polices - Road Rage pour le HUD, Metal Mania pour les gros textes
+        try:
+            self.font = pygame.font.Font(str(FONT_ROAD_RAGE), 26)
+            self.font_big = pygame.font.Font(str(FONT_METAL_MANIA), 48)
+        except (pygame.error, FileNotFoundError):
+            self.font = pygame.font.Font(None, 26)
+            self.font_big = pygame.font.Font(None, 48)
 
         # Recuperer les donnees du jeu
         self.current_level = self.game.game_data["current_level"]
@@ -1183,6 +1192,9 @@ class GameplayScene(Scene):
         """Met a jour le gameplay"""
         dt_ms = dt * 1000
 
+        # Timer pour animations visuelles (toujours actif)
+        self.animation_time += dt
+
         # Pendant l'ultime: TOUT EST FIGE sauf la sequence Guitar Hero
         if self.ultimate_active:
             self._update_ultimate_sequence(dt_ms)
@@ -1538,7 +1550,10 @@ class GameplayScene(Scene):
         # Texte "BOSS VAINCU!" avec effet de pulsation
         pulse = 1.0 + math.sin(self.celebration_timer / 200) * 0.15
         font_size = int(72 * pulse)
-        font = pygame.font.Font(None, font_size)
+        try:
+            font = pygame.font.Font(str(FONT_METAL_MANIA), font_size)
+        except (pygame.error, FileNotFoundError):
+            font = pygame.font.Font(None, font_size)
 
         # Ombre du texte
         shadow_text = font.render("BOSS VAINCU!", True, (50, 50, 50))
@@ -1551,7 +1566,10 @@ class GameplayScene(Scene):
         screen.blit(text, text_rect)
 
         # Sous-texte
-        sub_font = pygame.font.Font(None, 36)
+        try:
+            sub_font = pygame.font.Font(str(FONT_ROAD_RAGE), 28)
+        except (pygame.error, FileNotFoundError):
+            sub_font = pygame.font.Font(None, 28)
         sub_text = sub_font.render("Tu es une vraie Rockstar!", True, WHITE)
         sub_rect = sub_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 60))
         screen.blit(sub_text, sub_rect)
@@ -1640,13 +1658,54 @@ class GameplayScene(Scene):
         ult_x = HUD_MARGIN
         ult_y = HUD_MARGIN + 60
 
-        pygame.draw.rect(screen, GRAY, (ult_x, ult_y, ult_bar_width, ult_bar_height))
-        ult_fill = int((self.player.ultimate_charge / ULTIMATE_CHARGE_MAX) * ult_bar_width)
-        ult_color = PURPLE if self.player.can_use_ultimate() else BLUE
-        pygame.draw.rect(screen, ult_color, (ult_x, ult_y, ult_fill, ult_bar_height))
-        pygame.draw.rect(screen, WHITE, (ult_x, ult_y, ult_bar_width, ult_bar_height), 2)
+        # Effet special quand ultime au max
+        if self.player.can_use_ultimate():
+            # Effet de pulsation (scale)
+            pulse = 1.0 + math.sin(self.animation_time * 8) * 0.08
+            pulse_width = int(ult_bar_width * pulse)
+            pulse_height = int(ult_bar_height * pulse)
+            pulse_x = ult_x - (pulse_width - ult_bar_width) // 2
+            pulse_y = ult_y - (pulse_height - ult_bar_height) // 2
 
-        ult_label = self.font.render("ULTIME [K]", True, WHITE)
+            # Glow effect (halo lumineux)
+            glow_alpha = int(100 + math.sin(self.animation_time * 6) * 55)
+            glow_surface = pygame.Surface((pulse_width + 20, pulse_height + 20), pygame.SRCALPHA)
+            glow_color = (255, 200, 0, glow_alpha)
+            pygame.draw.rect(glow_surface, glow_color, (0, 0, pulse_width + 20, pulse_height + 20), border_radius=8)
+            screen.blit(glow_surface, (pulse_x - 10, pulse_y - 10))
+
+            # Couleur qui oscille entre violet et or
+            color_shift = (math.sin(self.animation_time * 10) + 1) / 2
+            ult_r = int(150 + color_shift * 105)
+            ult_g = int(0 + color_shift * 215)
+            ult_b = int(255 - color_shift * 255)
+            ult_color = (ult_r, ult_g, ult_b)
+
+            # Fond
+            pygame.draw.rect(screen, DARK_GRAY, (pulse_x, pulse_y, pulse_width, pulse_height), border_radius=4)
+            # Barre remplie
+            pygame.draw.rect(screen, ult_color, (pulse_x, pulse_y, pulse_width, pulse_height), border_radius=4)
+            # Effet de brillance qui se deplace
+            shine_x = int((math.sin(self.animation_time * 4) + 1) / 2 * (pulse_width - 30))
+            shine_surface = pygame.Surface((30, pulse_height), pygame.SRCALPHA)
+            for i in range(30):
+                alpha = int(150 * (1 - abs(i - 15) / 15))
+                pygame.draw.line(shine_surface, (255, 255, 255, alpha), (i, 0), (i, pulse_height))
+            screen.blit(shine_surface, (pulse_x + shine_x, pulse_y))
+            # Bordure
+            pygame.draw.rect(screen, YELLOW, (pulse_x, pulse_y, pulse_width, pulse_height), 2, border_radius=4)
+
+            # Label avec effet
+            label_color = (255, int(200 + math.sin(self.animation_time * 8) * 55), 0)
+            ult_label = self.font.render("ULTIME PRET!", True, label_color)
+        else:
+            # Jauge normale
+            pygame.draw.rect(screen, GRAY, (ult_x, ult_y, ult_bar_width, ult_bar_height))
+            ult_fill = int((self.player.ultimate_charge / ULTIMATE_CHARGE_MAX) * ult_bar_width)
+            pygame.draw.rect(screen, BLUE, (ult_x, ult_y, ult_fill, ult_bar_height))
+            pygame.draw.rect(screen, WHITE, (ult_x, ult_y, ult_bar_width, ult_bar_height), 2)
+            ult_label = self.font.render("ULTIME [K]", True, WHITE)
+
         screen.blit(ult_label, (ult_x, ult_y + 18))
 
         # Debug info
