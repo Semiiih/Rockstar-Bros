@@ -318,8 +318,8 @@ class MenuScene(Scene):
 
     def _draw_menu_box(self, screen, title, options, selected, y_start=250):
         """Dessine une boite de menu stylisee"""
-        box_width = 400
-        box_height = 80 + len(options) * 60
+        box_width = 500
+        box_height = 100 + len(options) * 70
         box_x = (WIDTH - box_width) // 2
         box_y = y_start
 
@@ -343,34 +343,34 @@ class MenuScene(Scene):
 
         # Titre de la boite
         title_text = self.font_menu.render(title, True, YELLOW)
-        title_rect = title_text.get_rect(center=(WIDTH // 2, box_y + 35))
+        title_rect = title_text.get_rect(center=(WIDTH // 2, box_y + 40))
         screen.blit(title_text, title_rect)
 
         # Ligne sous le titre
-        pygame.draw.line(screen, YELLOW, (box_x + 20, box_y + 60), (box_x + box_width - 20, box_y + 60), 2)
+        pygame.draw.line(screen, YELLOW, (box_x + 30, box_y + 70), (box_x + box_width - 30, box_y + 70), 2)
 
         # Options
         for i, option in enumerate(options):
-            y = box_y + 90 + i * 55
+            y = box_y + 100 + i * 65
             is_selected = i == selected
 
             if is_selected:
                 # Fond de selection
-                sel_surf = pygame.Surface((box_width - 40, 45), pygame.SRCALPHA)
+                sel_surf = pygame.Surface((box_width - 60, 50), pygame.SRCALPHA)
                 sel_surf.fill((255, 200, 0, 80))
-                screen.blit(sel_surf, (box_x + 20, y - 8))
+                screen.blit(sel_surf, (box_x + 30, y - 8))
 
                 # Fleches animees
                 arrow_offset = math.sin(self.anim_time * 8) * 5
-                self._draw_arrow(screen, box_x + 30 + arrow_offset, y + 15)
-                self._draw_arrow_right(screen, box_x + box_width - 30 - arrow_offset, y + 15)
+                self._draw_arrow(screen, box_x + 45 + arrow_offset, y + 17)
+                self._draw_arrow_right(screen, box_x + box_width - 45 - arrow_offset, y + 17)
 
                 color = YELLOW
             else:
                 color = WHITE
 
             text = self.font_menu.render(option, True, color)
-            rect = text.get_rect(center=(WIDTH // 2, y + 15))
+            rect = text.get_rect(center=(WIDTH // 2, y + 17))
             screen.blit(text, rect)
 
         return box_y + box_height
@@ -407,36 +407,43 @@ class MenuScene(Scene):
         self._draw_menu_box(screen, "MENU PRINCIPAL", self.main_options, self.selected_option)
 
         # Instructions en bas
-        self._draw_instructions(screen, "↑↓ Naviguer  |  ENTREE Valider")
+        self._draw_instructions(screen, "Naviguer  |  ENTREE Valider")
 
     def _draw_options(self, screen):
         """Dessine le menu options"""
         # Titre
         title_text = self.font_title.render("OPTIONS", True, YELLOW)
         shadow_text = self.font_title.render("OPTIONS", True, (50, 30, 0))
-        title_rect = title_text.get_rect(center=(WIDTH // 2, 100))
+        title_rect = title_text.get_rect(center=(WIDTH // 2, 120))
         screen.blit(shadow_text, title_rect.move(4, 4))
         screen.blit(title_text, title_rect)
 
-        # Menu options
-        self._draw_menu_box(screen, "PARAMETRES", self.options_menu, self.selected_option, 200)
+        # Menu options - centre verticalement
+        self._draw_menu_box(screen, "PARAMETRES", self.options_menu, self.selected_option, 220)
 
-        self._draw_instructions(screen, "↑↓ Naviguer  |  ENTREE Valider  |  ECHAP Retour")
+        self._draw_instructions(screen, "Naviguer  |  ENTREE Valider  |  ECHAP Retour")
 
     def _draw_controls(self, screen):
         """Dessine le menu de configuration des touches"""
         # Titre
         title_text = self.font_title.render("TOUCHES", True, YELLOW)
         shadow_text = self.font_title.render("TOUCHES", True, (50, 30, 0))
-        title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
+        title_rect = title_text.get_rect(center=(WIDTH // 2, 60))
         screen.blit(shadow_text, title_rect.move(4, 4))
         screen.blit(title_text, title_rect)
 
-        # Boite principale
-        box_width = 600
-        box_height = 450
+        # Calculer la hauteur necessaire
+        num_actions = len(CONFIGURABLE_ACTIONS)
+        row_height = 48
+        header_height = 70
+        retour_height = 55
+        padding = 30
+
+        # Hauteur totale: header + actions + retour + padding
+        box_height = header_height + (num_actions * row_height) + retour_height + padding
+        box_width = 650
         box_x = (WIDTH - box_width) // 2
-        box_y = 140
+        box_y = 110
 
         # Fond
         box_surf = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
@@ -447,31 +454,36 @@ class MenuScene(Scene):
         border_color = (200, 100, 0)
         pygame.draw.rect(screen, border_color, (box_x, box_y, box_width, box_height), 3, border_radius=10)
 
+        # Colonnes bien espacees - tout a l'interieur de la boite
+        col1_x = box_x + 40  # Action
+        col2_x = box_x + 280  # Touche 1
+        col3_x = box_x + 450  # Touche 2
+
         # En-tete
         header_text = self.font_menu.render("Action", True, YELLOW)
-        screen.blit(header_text, (box_x + 50, box_y + 20))
+        screen.blit(header_text, (col1_x, box_y + 20))
         header_text2 = self.font_menu.render("Touche 1", True, YELLOW)
-        screen.blit(header_text2, (box_x + 280, box_y + 20))
+        screen.blit(header_text2, (col2_x, box_y + 20))
         header_text3 = self.font_menu.render("Touche 2", True, YELLOW)
-        screen.blit(header_text3, (box_x + 450, box_y + 20))
+        screen.blit(header_text3, (col3_x, box_y + 20))
 
         pygame.draw.line(screen, YELLOW, (box_x + 20, box_y + 60), (box_x + box_width - 20, box_y + 60), 2)
 
         # Liste des actions
         for i, (action_key, action_name) in enumerate(CONFIGURABLE_ACTIONS):
-            y = box_y + 80 + i * 50
+            y = box_y + header_height + i * row_height
             is_selected = i == self.controls_selected
 
             if is_selected:
-                # Fond de selection
-                sel_surf = pygame.Surface((box_width - 40, 40), pygame.SRCALPHA)
+                # Fond de selection - bien centre dans la boite
+                sel_surf = pygame.Surface((box_width - 40, 42), pygame.SRCALPHA)
                 sel_surf.fill((255, 200, 0, 80))
-                screen.blit(sel_surf, (box_x + 20, y))
+                screen.blit(sel_surf, (box_x + 20, y - 2))
 
             # Nom de l'action
             color = YELLOW if is_selected else WHITE
             name_text = self.font_small.render(action_name, True, color)
-            screen.blit(name_text, (box_x + 50, y + 10))
+            screen.blit(name_text, (col1_x, y + 10))
 
             # Touches actuelles
             keys = CONTROLS.get(action_key, [])
@@ -481,33 +493,35 @@ class MenuScene(Scene):
                     key1_text = self.font_small.render("...", True, RED)
                 else:
                     key1_text = self.font_small.render(key1_name, True, color)
-                screen.blit(key1_text, (box_x + 300, y + 10))
+                screen.blit(key1_text, (col2_x, y + 10))
 
             if len(keys) > 1:
                 key2_name = get_key_name(keys[1])
                 key2_text = self.font_small.render(key2_name, True, GRAY)
-                screen.blit(key2_text, (box_x + 470, y + 10))
+                screen.blit(key2_text, (col3_x, y + 10))
 
-        # Option Retour
-        retour_y = box_y + 80 + len(CONFIGURABLE_ACTIONS) * 50 + 20
-        is_retour_selected = self.controls_selected == len(CONFIGURABLE_ACTIONS)
+        # Option Retour - positionne apres les actions
+        retour_y = box_y + header_height + num_actions * row_height + 10
+        is_retour_selected = self.controls_selected == num_actions
 
         if is_retour_selected:
-            sel_surf = pygame.Surface((box_width - 40, 40), pygame.SRCALPHA)
+            sel_surf = pygame.Surface((box_width - 40, 42), pygame.SRCALPHA)
             sel_surf.fill((255, 200, 0, 80))
             screen.blit(sel_surf, (box_x + 20, retour_y))
 
         retour_color = YELLOW if is_retour_selected else WHITE
-        retour_text = self.font_menu.render("← Retour", True, retour_color)
-        screen.blit(retour_text, (box_x + 50, retour_y + 5))
+        retour_text = self.font_menu.render("Retour", True, retour_color)
+        # Centrer verticalement le texte dans la bande de selection
+        text_y = retour_y + (42 - retour_text.get_height()) // 2
+        screen.blit(retour_text, (col1_x, text_y))
 
         # Message si en attente de touche
         if self.waiting_for_key:
-            msg = self.font_menu.render("Appuyez sur une touche... (ECHAP pour annuler)", True, RED)
+            msg = self.font_small.render("Appuyez sur une touche... (ECHAP pour annuler)", True, RED)
             msg_rect = msg.get_rect(center=(WIDTH // 2, HEIGHT - 80))
             screen.blit(msg, msg_rect)
         else:
-            self._draw_instructions(screen, "↑↓ Naviguer  |  ENTREE Modifier  |  ECHAP Retour")
+            self._draw_instructions(screen, "Naviguer  |  ENTREE Modifier  |  ECHAP Retour")
 
     def _draw_instructions(self, screen, text):
         """Dessine les instructions en bas de l'ecran"""
@@ -538,16 +552,16 @@ class MenuScene(Scene):
         self._draw_character_option(screen, 2, p2_x, char_y, self.player2_img, "Luna")
 
         # VS au milieu
-        vs_pulse = 1.0 + math.sin(self.anim_time * 4) * 0.1
-        try:
-            vs_font = pygame.font.Font(str(FONT_METAL_MANIA), int(60 * vs_pulse))
-        except (pygame.error, FileNotFoundError):
-            vs_font = pygame.font.Font(None, int(60 * vs_pulse))
-        vs_text = vs_font.render("VS", True, RED)
-        vs_rect = vs_text.get_rect(center=(WIDTH // 2, char_y))
-        screen.blit(vs_text, vs_rect)
+        # vs_pulse = 1.0 + math.sin(self.anim_time * 4) * 0.1
+        # try:
+        #     vs_font = pygame.font.Font(str(FONT_METAL_MANIA), int(60 * vs_pulse))
+        # except (pygame.error, FileNotFoundError):
+        #     vs_font = pygame.font.Font(None, int(60 * vs_pulse))
+        # vs_text = vs_font.render("VS", True, RED)
+        # vs_rect = vs_text.get_rect(center=(WIDTH // 2, char_y))
+        # screen.blit(vs_text, vs_rect)
 
-        self._draw_instructions(screen, "← → Choisir  |  ENTREE Valider  |  ECHAP Retour")
+        self._draw_instructions(screen, "Choisir  |  ENTREE Valider  |  ECHAP Retour")
 
     def _draw_character_option(self, screen, char_num, x, y, image, name):
         """Dessine une option de personnage avec animations rock"""
