@@ -40,12 +40,13 @@ class Projectile(pygame.sprite.Sprite):
         pygame.draw.ellipse(surf, color, (0, 0, size[0], size[1]))
         return surf
 
-    def update(self, dt):
+    def update(self, dt, camera_x=0):
         """Met a jour le projectile"""
         self.rect.x += self.speed * self.direction
 
-        # Supprime si hors ecran (avec marge pour camera)
-        if self.rect.right < -100 or self.rect.left > WIDTH + 2000:
+        # Supprime si hors ecran visible (relatif a la camera)
+        screen_x = self.rect.x - camera_x
+        if screen_x < -200 or screen_x > WIDTH + 200:
             self.kill()
 
 

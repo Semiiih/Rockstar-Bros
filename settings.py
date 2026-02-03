@@ -122,7 +122,7 @@ LANE_KEYS = [pygame.K_f, pygame.K_g, pygame.K_h]  # Touches F, G, H
 # ENNEMIS
 # =============================================================================
 # Hater (ennemi de base)
-HATER_SPEED = 2
+HATER_SPEED = 1.2
 HATER_HEALTH = 2
 HATER_DAMAGE = 1
 HATER_WIDTH = 48
@@ -131,7 +131,7 @@ HATER_DETECTION_RANGE = 300
 HATER_SCORE = 100
 
 # Rockstar rival
-RIVAL_SPEED = 3
+RIVAL_SPEED = 1.8
 RIVAL_HEALTH = 3
 RIVAL_DAMAGE = 1
 RIVAL_WIDTH = 56
@@ -222,7 +222,7 @@ IMG_PLAYER1_RUN2 = "player1_run2.png"
 IMG_PLAYER1_JUMP = "player1_jump.png"
 IMG_PLAYER1_ATTACK = "player1_attack.png"
 IMG_PLAYER1_ULTIMATE = "player1_ultimate.png"
-IMG_PLAYER1_CROUCH = "player1_crouch.png"
+IMG_PLAYER1_CROUCH = "player1_crouch1.png"
 
 # Joueur 2
 IMG_PLAYER2_IDLE = "player2_idle.png"
@@ -231,7 +231,7 @@ IMG_PLAYER2_RUN2 = "player2_run2.png"
 IMG_PLAYER2_JUMP = "player2_jump.png"
 IMG_PLAYER2_ATTACK = "player2_attack.png"
 IMG_PLAYER2_ULTIMATE = "player2_ultimate.png"
-IMG_PLAYER2_CROUCH = "player2_crouch.png"
+IMG_PLAYER2_CROUCH = "player2_crouch1.png"
 
 # Ennemis - Hater
 IMG_HATER_IDLE = "hater_idle.png"

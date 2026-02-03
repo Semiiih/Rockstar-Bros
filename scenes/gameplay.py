@@ -432,7 +432,7 @@ class GameplayScene(Scene):
 
             self.ultimate_results.append(result)
             self.timing_feedback = result
-            self.timing_feedback_timer = 300
+            self.timing_feedback_timer = 800  # Plus long pour etre lisible
 
             # Supprimer la note
             self.ultimate_notes.remove(closest_note)
@@ -476,7 +476,7 @@ class GameplayScene(Scene):
 
         # Afficher les degats totaux
         self.timing_feedback = f"DAMAGE: {self.ultimate_total_damage}!"
-        self.timing_feedback_timer = 1000
+        self.timing_feedback_timer = 2000  # Plus long pour etre lisible
 
     def update(self, dt):
         """Met a jour le gameplay"""
@@ -506,7 +506,7 @@ class GameplayScene(Scene):
         self.player.update(dt, self.platforms)
 
         for proj in self.player_projectiles:
-            proj.update(dt)
+            proj.update(dt, self.camera_x)
 
         for proj in self.boss_projectiles:
             proj.update(dt)
@@ -570,7 +570,7 @@ class GameplayScene(Scene):
                 notes_to_remove.append(note)
                 self.ultimate_results.append("MISS")
                 self.timing_feedback = "MISS"
-                self.timing_feedback_timer = 300
+                self.timing_feedback_timer = 800  # Plus long pour etre lisible
 
         for note in notes_to_remove:
             self.ultimate_notes.remove(note)
@@ -654,9 +654,14 @@ class GameplayScene(Scene):
                     # Collision normale - le joueur prend des degats
                     if self.player.take_damage(enemy.damage):
                         self.game.game_data["lives"] = self.player.health
-                        # Repousser le joueur
-                        knockback = -5 if self.player.rect.centerx < enemy.rect.centerx else 5
-                        self.player.rect.x += knockback * 10
+                        # Repousser le joueur legerement (sans teleportation)
+                        if self.player.rect.centerx < enemy.rect.centerx:
+                            self.player.rect.x -= 20
+                        else:
+                            self.player.rect.x += 20
+                        # Petit saut de recul
+                        if self.player.on_ground:
+                            self.player.velocity_y = -5
 
         # Joueur -> Pickups
         for pickup in self.pickups:
