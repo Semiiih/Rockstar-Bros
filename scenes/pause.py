@@ -8,7 +8,8 @@ from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, GRAY, BLACK,
     STATE_GAMEPLAY, STATE_MENU, CONTROLS,
-    IMG_DIR, IMG_PAUSE
+    IMG_DIR, IMG_PAUSE,
+    FONT_METAL_MANIA, FONT_ROAD_RAGE
 )
 
 
@@ -30,9 +31,15 @@ class PauseScene(Scene):
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans la pause"""
-        self.font_title = pygame.font.Font(None, 72)
-        self.font_menu = pygame.font.Font(None, 48)
-        self.font_small = pygame.font.Font(None, 32)
+        # Charger les polices - Metal Mania pour titres, Road Rage pour texte
+        try:
+            self.font_title = pygame.font.Font(str(FONT_METAL_MANIA), 72)
+            self.font_menu = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
+            self.font_small = pygame.font.Font(str(FONT_ROAD_RAGE), 24)
+        except (pygame.error, FileNotFoundError):
+            self.font_title = pygame.font.Font(None, 72)
+            self.font_menu = pygame.font.Font(None, 36)
+            self.font_small = pygame.font.Font(None, 24)
 
         self.selected_option = 0
 

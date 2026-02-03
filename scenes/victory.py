@@ -9,7 +9,8 @@ from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, GREEN, PURPLE, GRAY,
     STATE_MENU, CONTROLS,
-    IMG_DIR, IMG_WIN
+    IMG_DIR, IMG_WIN,
+    FONT_METAL_MANIA, FONT_ROAD_RAGE
 )
 
 
@@ -32,10 +33,17 @@ class VictoryScene(Scene):
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans la victoire"""
-        self.font_title = pygame.font.Font(None, 96)
-        self.font_menu = pygame.font.Font(None, 48)
-        self.font_score = pygame.font.Font(None, 72)
-        self.font_small = pygame.font.Font(None, 32)
+        # Charger les polices - Metal Mania pour titres, Road Rage pour texte
+        try:
+            self.font_title = pygame.font.Font(str(FONT_METAL_MANIA), 96)
+            self.font_menu = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
+            self.font_score = pygame.font.Font(str(FONT_METAL_MANIA), 72)
+            self.font_small = pygame.font.Font(str(FONT_ROAD_RAGE), 24)
+        except (pygame.error, FileNotFoundError):
+            self.font_title = pygame.font.Font(None, 96)
+            self.font_menu = pygame.font.Font(None, 36)
+            self.font_score = pygame.font.Font(None, 72)
+            self.font_small = pygame.font.Font(None, 24)
 
         self.selected_option = 0
         self.final_score = self.game.game_data.get("score", 0)
@@ -71,7 +79,10 @@ class VictoryScene(Scene):
         # Titre VICTOIRE avec effet de pulsation
         pulse = 1.0 + math.sin(self.animation_timer * 5) * 0.1
         title_font_size = int(96 * pulse)
-        title_font = pygame.font.Font(None, title_font_size)
+        try:
+            title_font = pygame.font.Font(str(FONT_METAL_MANIA), title_font_size)
+        except (pygame.error, FileNotFoundError):
+            title_font = pygame.font.Font(None, title_font_size)
 
         title_text = title_font.render("VICTOIRE!", True, YELLOW)
         title_rect = title_text.get_rect(center=(WIDTH // 2, 150))

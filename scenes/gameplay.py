@@ -48,6 +48,7 @@ from settings import (
     IMG_PROJECTILE, IMG_BOSS_PROJECTILE,
     IMG_BG_LEVEL1, IMG_BG_LEVEL2, IMG_BG_BOSS,
     IMG_HEART_FULL, IMG_HEART_EMPTY,
+    FONT_METAL_MANIA, FONT_ROAD_RAGE,
     IMG_NOTE, IMG_MEDIATOR, IMG_AMPLI,
     # HUD
     HUD_MARGIN, HUD_HEALTH_SIZE,
@@ -797,8 +798,13 @@ class GameplayScene(Scene):
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
-        self.font = pygame.font.Font(None, 32)
-        self.font_big = pygame.font.Font(None, 48)
+        # Charger les polices - Road Rage pour le HUD, Metal Mania pour les gros textes
+        try:
+            self.font = pygame.font.Font(str(FONT_ROAD_RAGE), 26)
+            self.font_big = pygame.font.Font(str(FONT_METAL_MANIA), 48)
+        except (pygame.error, FileNotFoundError):
+            self.font = pygame.font.Font(None, 26)
+            self.font_big = pygame.font.Font(None, 48)
 
         # Recuperer les donnees du jeu
         self.current_level = self.game.game_data["current_level"]
@@ -1538,7 +1544,10 @@ class GameplayScene(Scene):
         # Texte "BOSS VAINCU!" avec effet de pulsation
         pulse = 1.0 + math.sin(self.celebration_timer / 200) * 0.15
         font_size = int(72 * pulse)
-        font = pygame.font.Font(None, font_size)
+        try:
+            font = pygame.font.Font(str(FONT_METAL_MANIA), font_size)
+        except (pygame.error, FileNotFoundError):
+            font = pygame.font.Font(None, font_size)
 
         # Ombre du texte
         shadow_text = font.render("BOSS VAINCU!", True, (50, 50, 50))
@@ -1551,7 +1560,10 @@ class GameplayScene(Scene):
         screen.blit(text, text_rect)
 
         # Sous-texte
-        sub_font = pygame.font.Font(None, 36)
+        try:
+            sub_font = pygame.font.Font(str(FONT_ROAD_RAGE), 28)
+        except (pygame.error, FileNotFoundError):
+            sub_font = pygame.font.Font(None, 28)
         sub_text = sub_font.render("Tu es une vraie Rockstar!", True, WHITE)
         sub_rect = sub_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 60))
         screen.blit(sub_text, sub_rect)

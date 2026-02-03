@@ -11,7 +11,8 @@ from settings import (
     IMG_DIR, IMG_HOME, IMG_PLAYER_DIR,
     IMG_PLAYER1_IDLE, IMG_PLAYER2_IDLE,
     PLAYER_WIDTH, PLAYER_HEIGHT,
-    SND_DIR, SND_MUSIC_MENU
+    SND_DIR, SND_MUSIC_MENU,
+    FONT_METAL_MANIA, FONT_ROAD_RAGE
 )
 
 
@@ -37,10 +38,16 @@ class MenuScene(Scene):
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans la scene"""
-        # Charger les polices
-        self.font_title = pygame.font.Font(None, 72)
-        self.font_menu = pygame.font.Font(None, 48)
-        self.font_small = pygame.font.Font(None, 32)
+        # Charger les polices - Metal Mania pour titres, Road Rage pour texte
+        try:
+            self.font_title = pygame.font.Font(str(FONT_METAL_MANIA), 72)
+            self.font_menu = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
+            self.font_small = pygame.font.Font(str(FONT_ROAD_RAGE), 24)
+        except (pygame.error, FileNotFoundError):
+            # Fallback si la font n'est pas trouvee
+            self.font_title = pygame.font.Font(None, 72)
+            self.font_menu = pygame.font.Font(None, 36)
+            self.font_small = pygame.font.Font(None, 24)
 
         # Reset etat
         self.menu_state = "main"
