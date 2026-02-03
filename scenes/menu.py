@@ -11,7 +11,8 @@ from settings import (
     IMG_DIR, IMG_HOME, IMG_PLAYER_DIR,
     IMG_PLAYER1_IDLE, IMG_PLAYER2_IDLE,
     PLAYER_WIDTH, PLAYER_HEIGHT,
-    SND_DIR, SND_MUSIC_MENU
+    SND_DIR, SND_MUSIC_MENU,
+    FONT_METAL_MANIA, FONT_ROAD_RAGE
 )
 
 
@@ -37,10 +38,16 @@ class MenuScene(Scene):
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans la scene"""
-        # Charger les polices
-        self.font_title = pygame.font.Font(None, 72)
-        self.font_menu = pygame.font.Font(None, 48)
-        self.font_small = pygame.font.Font(None, 32)
+        # Charger les polices - Metal Mania pour titres, Road Rage pour texte
+        try:
+            self.font_title = pygame.font.Font(str(FONT_METAL_MANIA), 72)
+            self.font_menu = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
+            self.font_small = pygame.font.Font(str(FONT_ROAD_RAGE), 24)
+        except (pygame.error, FileNotFoundError):
+            # Fallback si la font n'est pas trouvee
+            self.font_title = pygame.font.Font(None, 72)
+            self.font_menu = pygame.font.Font(None, 36)
+            self.font_small = pygame.font.Font(None, 24)
 
         # Reset etat
         self.menu_state = "main"
@@ -154,6 +161,16 @@ class MenuScene(Scene):
                 (0, y), (WIDTH, y)
             )
 
+    def _draw_arrow(self, screen, x, y, color=YELLOW):
+        """Dessine une fleche de selection (triangle)"""
+        arrow_size = 12
+        points = [
+            (x, y - arrow_size // 2),
+            (x, y + arrow_size // 2),
+            (x + arrow_size, y)
+        ]
+        pygame.draw.polygon(screen, color, points)
+
     def _draw_main_menu(self, screen):
         """Dessine le menu principal"""
         # Titre
@@ -168,16 +185,14 @@ class MenuScene(Scene):
 
         # Options du menu
         for i, option in enumerate(self.main_options):
-            if i == self.selected_option:
-                color = YELLOW
-                prefix = "> "
-            else:
-                color = WHITE
-                prefix = "  "
-
-            text = self.font_menu.render(prefix + option, True, color)
+            color = YELLOW if i == self.selected_option else WHITE
+            text = self.font_menu.render(option, True, color)
             rect = text.get_rect(center=(WIDTH // 2, 350 + i * 60))
             screen.blit(text, rect)
+
+            # Fleche a gauche de l'option selectionnee
+            if i == self.selected_option:
+                self._draw_arrow(screen, rect.left - 25, rect.centery)
 
         # Instructions
         instructions = self.font_small.render(

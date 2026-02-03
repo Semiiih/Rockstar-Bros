@@ -51,6 +51,11 @@ IMG_BG_DIR = IMG_DIR / "backgrounds"
 IMG_FX_DIR = IMG_DIR / "fx"
 IMG_PLATFORMS_DIR = IMG_DIR / "platforms"
 
+# Fonts
+FONTS_DIR = ASSETS_DIR / "fonts"
+FONT_METAL_MANIA = FONTS_DIR / "MetalMania-Regular.ttf"
+FONT_ROAD_RAGE = FONTS_DIR / "Road_Rage.otf"
+
 # =============================================================================
 # JOUEUR
 # =============================================================================

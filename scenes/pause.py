@@ -8,7 +8,8 @@ from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, GRAY, BLACK,
     STATE_GAMEPLAY, STATE_MENU, CONTROLS,
-    IMG_DIR, IMG_PAUSE
+    IMG_DIR, IMG_PAUSE,
+    FONT_METAL_MANIA, FONT_ROAD_RAGE
 )
 
 
@@ -30,9 +31,15 @@ class PauseScene(Scene):
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans la pause"""
-        self.font_title = pygame.font.Font(None, 72)
-        self.font_menu = pygame.font.Font(None, 48)
-        self.font_small = pygame.font.Font(None, 32)
+        # Charger les polices - Metal Mania pour titres, Road Rage pour texte
+        try:
+            self.font_title = pygame.font.Font(str(FONT_METAL_MANIA), 72)
+            self.font_menu = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
+            self.font_small = pygame.font.Font(str(FONT_ROAD_RAGE), 24)
+        except (pygame.error, FileNotFoundError):
+            self.font_title = pygame.font.Font(None, 72)
+            self.font_menu = pygame.font.Font(None, 36)
+            self.font_small = pygame.font.Font(None, 24)
 
         self.selected_option = 0
 
@@ -70,6 +77,16 @@ class PauseScene(Scene):
         """Mise a jour (rien a faire en pause)"""
         pass
 
+    def _draw_arrow(self, screen, x, y, color=YELLOW):
+        """Dessine une fleche de selection (triangle)"""
+        arrow_size = 12
+        points = [
+            (x, y - arrow_size // 2),
+            (x, y + arrow_size // 2),
+            (x + arrow_size, y)
+        ]
+        pygame.draw.polygon(screen, color, points)
+
     def draw(self, screen):
         """Dessine le menu pause"""
         # Background
@@ -102,16 +119,14 @@ class PauseScene(Scene):
 
         # Options
         for i, option in enumerate(self.options):
-            if i == self.selected_option:
-                color = YELLOW
-                prefix = "> "
-            else:
-                color = WHITE
-                prefix = "  "
-
-            text = self.font_menu.render(prefix + option, True, color)
+            color = YELLOW if i == self.selected_option else WHITE
+            text = self.font_menu.render(option, True, color)
             rect = text.get_rect(center=(WIDTH // 2, frame_y + 140 + i * 60))
             screen.blit(text, rect)
+
+            # Fleche a gauche de l'option selectionnee
+            if i == self.selected_option:
+                self._draw_arrow(screen, rect.left - 25, rect.centery)
 
         # Instructions
         instructions = self.font_small.render(
