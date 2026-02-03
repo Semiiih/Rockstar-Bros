@@ -222,6 +222,7 @@ IMG_PLAYER1_RUN2 = "player1_run2.png"
 IMG_PLAYER1_JUMP = "player1_jump.png"
 IMG_PLAYER1_ATTACK = "player1_attack.png"
 IMG_PLAYER1_ULTIMATE = "player1_ultimate.png"
+IMG_PLAYER1_CROUCH = "player1_crouch.png"
 
 # Joueur 2
 IMG_PLAYER2_IDLE = "player2_idle.png"
@@ -230,6 +231,7 @@ IMG_PLAYER2_RUN2 = "player2_run2.png"
 IMG_PLAYER2_JUMP = "player2_jump.png"
 IMG_PLAYER2_ATTACK = "player2_attack.png"
 IMG_PLAYER2_ULTIMATE = "player2_ultimate.png"
+IMG_PLAYER2_CROUCH = "player2_crouch.png"
 
 # Ennemis - Hater
 IMG_HATER_IDLE = "hater_idle.png"
@@ -283,6 +285,7 @@ IMG_HOME = "home.png"
 IMG_GAMEOVER = "gameover.png"
 IMG_PAUSE = "pause.png"
 IMG_WIN = "win.png"
+IMG_LOGO = "logo.png"
 
 # Plateformes
 IMG_PLATFORM = "platform.png"
@@ -306,6 +309,7 @@ CONTROLS = {
     "left": [pygame.K_LEFT, pygame.K_a],
     "right": [pygame.K_RIGHT, pygame.K_d],
     "jump": [pygame.K_SPACE, pygame.K_w, pygame.K_UP],
+    "crouch": [pygame.K_DOWN, pygame.K_s],
     "attack": [pygame.K_j],
     "ultimate": [pygame.K_k],
     "pause": [pygame.K_ESCAPE],
