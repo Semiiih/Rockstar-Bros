@@ -77,6 +77,16 @@ class PauseScene(Scene):
         """Mise a jour (rien a faire en pause)"""
         pass
 
+    def _draw_arrow(self, screen, x, y, color=YELLOW):
+        """Dessine une fleche de selection (triangle)"""
+        arrow_size = 12
+        points = [
+            (x, y - arrow_size // 2),
+            (x, y + arrow_size // 2),
+            (x + arrow_size, y)
+        ]
+        pygame.draw.polygon(screen, color, points)
+
     def draw(self, screen):
         """Dessine le menu pause"""
         # Background
@@ -109,16 +119,14 @@ class PauseScene(Scene):
 
         # Options
         for i, option in enumerate(self.options):
-            if i == self.selected_option:
-                color = YELLOW
-                prefix = "> "
-            else:
-                color = WHITE
-                prefix = "  "
-
-            text = self.font_menu.render(prefix + option, True, color)
+            color = YELLOW if i == self.selected_option else WHITE
+            text = self.font_menu.render(option, True, color)
             rect = text.get_rect(center=(WIDTH // 2, frame_y + 140 + i * 60))
             screen.blit(text, rect)
+
+            # Fleche a gauche de l'option selectionnee
+            if i == self.selected_option:
+                self._draw_arrow(screen, rect.left - 25, rect.centery)
 
         # Instructions
         instructions = self.font_small.render(

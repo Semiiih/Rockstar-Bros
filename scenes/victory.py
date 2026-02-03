@@ -67,6 +67,16 @@ class VictoryScene(Scene):
         """Mise a jour des animations"""
         self.animation_timer += dt
 
+    def _draw_arrow(self, screen, x, y, color=YELLOW):
+        """Dessine une fleche de selection (triangle)"""
+        arrow_size = 12
+        points = [
+            (x, y - arrow_size // 2),
+            (x, y + arrow_size // 2),
+            (x + arrow_size, y)
+        ]
+        pygame.draw.polygon(screen, color, points)
+
     def draw(self, screen):
         """Dessine l'ecran de victoire"""
         # Background
@@ -114,9 +124,11 @@ class VictoryScene(Scene):
         screen.blit(congrats, congrats_rect)
 
         # Option retour menu
-        text = self.font_menu.render("> Menu Principal", True, YELLOW)
+        text = self.font_menu.render("Menu Principal", True, YELLOW)
         rect = text.get_rect(center=(WIDTH // 2, 560))
         screen.blit(text, rect)
+        # Fleche a gauche
+        self._draw_arrow(screen, rect.left - 25, rect.centery)
 
         # Instructions
         instructions = self.font_small.render(
