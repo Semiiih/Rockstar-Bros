@@ -231,12 +231,27 @@ IMG_PLAYER2_JUMP = "player2_jump.png"
 IMG_PLAYER2_ATTACK = "player2_attack.png"
 IMG_PLAYER2_ULTIMATE = "player2_ultimate.png"
 
-# Ennemis
+# Ennemis - Hater
 IMG_HATER_IDLE = "hater_idle.png"
+IMG_HATER_RUN = "hater_run.png"
+IMG_HATER_RUN1 = "hater_run1.png"
+IMG_HATER_ATTACK = "hater_attack.png"
+IMG_HATER_DEAD = "hater_dead.png"
 IMG_HATER_HIT = "hater_hit.png"
+
+# Ennemis - Rival
 IMG_RIVAL_IDLE = "rival_idle.png"
+IMG_RIVAL_RUN1 = "rival_run1.png"
+IMG_RIVAL_RUN2 = "rival_run2.png"
+IMG_RIVAL_ATTACK = "rival_attack.png"
+IMG_RIVAL_DEAD = "rival_dead.png"
 IMG_RIVAL_HIT = "rival_hit.png"
+
+# Ennemis - Boss
 IMG_BOSS_IDLE = "boss_idle.png"
+IMG_BOSS_RUN1 = "boss_run1.png"
+IMG_BOSS_RUN2 = "boss_run2.png"
+IMG_BOSS_JUMP = "boss_jump.png"
 IMG_BOSS_ATTACK = "boss_attack.png"
 IMG_BOSS_HIT = "boss_hit.png"
 

@@ -1,0 +1,87 @@
+"""
+Rockstar Bros - Classes Projectiles
+Gere les projectiles du joueur et du boss
+"""
+
+import pygame
+import math
+from settings import (
+    WIDTH, HEIGHT, YELLOW, RED,
+    PROJECTILE_SPEED, PROJECTILE_WIDTH, PROJECTILE_HEIGHT, PROJECTILE_DAMAGE,
+    BOSS_PROJECTILE_SPEED, BOSS_DAMAGE,
+    IMG_FX_DIR, IMG_PROJECTILE,
+)
+
+
+class Projectile(pygame.sprite.Sprite):
+    """Projectile du joueur (onde sonore)"""
+
+    def __init__(self, x, y, direction, damage_multiplier=1.0):
+        super().__init__()
+        self.image = self._get_placeholder((PROJECTILE_WIDTH, PROJECTILE_HEIGHT), YELLOW)
+        self._load_image()
+        self.rect = self.image.get_rect(center=(x, y))
+        self.direction = direction  # 1 = droite, -1 = gauche
+        self.speed = PROJECTILE_SPEED
+        self.damage = int(PROJECTILE_DAMAGE * damage_multiplier)
+
+    def _load_image(self):
+        """Charge l'image du projectile"""
+        try:
+            path = IMG_FX_DIR / IMG_PROJECTILE
+            img = pygame.image.load(str(path)).convert_alpha()
+            self.image = pygame.transform.scale(img, (PROJECTILE_WIDTH, PROJECTILE_HEIGHT))
+        except (pygame.error, FileNotFoundError):
+            pass
+
+    def _get_placeholder(self, size, color):
+        """Cree une image placeholder"""
+        surf = pygame.Surface(size, pygame.SRCALPHA)
+        pygame.draw.ellipse(surf, color, (0, 0, size[0], size[1]))
+        return surf
+
+    def update(self, dt):
+        """Met a jour le projectile"""
+        self.rect.x += self.speed * self.direction
+
+        # Supprime si hors ecran (avec marge pour camera)
+        if self.rect.right < -100 or self.rect.left > WIDTH + 2000:
+            self.kill()
+
+
+class BossProjectile(pygame.sprite.Sprite):
+    """Projectile du boss"""
+
+    def __init__(self, x, y, target_x, target_y):
+        super().__init__()
+        self.image = self._get_placeholder((30, 30), RED)
+        self.rect = self.image.get_rect(center=(x, y))
+
+        # Calcul direction vers la cible
+        dx = target_x - x
+        dy = target_y - y
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0:
+            self.vel_x = (dx / dist) * BOSS_PROJECTILE_SPEED
+            self.vel_y = (dy / dist) * BOSS_PROJECTILE_SPEED
+        else:
+            self.vel_x = -BOSS_PROJECTILE_SPEED
+            self.vel_y = 0
+
+        self.damage = BOSS_DAMAGE
+
+    def _get_placeholder(self, size, color):
+        """Cree une image placeholder"""
+        surf = pygame.Surface(size, pygame.SRCALPHA)
+        pygame.draw.circle(surf, color, (size[0]//2, size[1]//2), size[0]//2)
+        return surf
+
+    def update(self, dt):
+        """Met a jour le projectile"""
+        self.rect.x += self.vel_x
+        self.rect.y += self.vel_y
+
+        # Supprime si hors ecran
+        if (self.rect.right < -50 or self.rect.left > WIDTH + 50 or
+            self.rect.bottom < -50 or self.rect.top > HEIGHT + 50):
+            self.kill()
