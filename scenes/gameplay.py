@@ -52,7 +52,7 @@ from settings import (
     # HUD
     HUD_MARGIN, HUD_HEALTH_SIZE,
     # Sons
-    SND_DIR, SND_MUSIC_LEVEL1, SND_MUSIC_LEVEL2, SND_MUSIC_BOSS,
+    SND_DIR, SND_MUSIC_LEVEL1, SND_MUSIC_LEVEL2, SND_MUSIC_BOSS, SND_VICTORY,
     # Plateformes
     IMG_PLATFORMS_DIR, IMG_PLATFORM, IMG_PLATFORM_SMALL, IMG_GROUND,
 )
@@ -93,7 +93,8 @@ class Player(pygame.sprite.Sprite):
         # Animation
         self.anim_frame = 0
         self.anim_timer = 0
-        self.state = "idle"  # idle, run, jump, attack
+        self.state = "idle"  # idle, run, jump, attack, ultimate
+        self.attack_anim_timer = 0  # Timer pour garder l'animation d'attaque
 
         # Debug
         self.debug_invincible = False
@@ -239,8 +240,17 @@ class Player(pygame.sprite.Sprite):
 
     def _update_animation(self, dt_ms):
         """Met a jour l'animation"""
-        # Determiner l'etat
-        if not self.on_ground:
+        # Gerer le timer d'animation d'attaque
+        if self.attack_anim_timer > 0:
+            self.attack_anim_timer -= dt_ms
+            if self.attack_anim_timer > 0:
+                self.state = "attack"
+                return  # Garder l'etat attack pendant le timer
+
+        # Determiner l'etat (si pas en attaque)
+        if self.state == "ultimate":
+            return  # Garder l'etat ultimate pendant la sequence
+        elif not self.on_ground:
             self.state = "jump"
         elif self.velocity_x != 0:
             self.state = "run"
@@ -262,6 +272,7 @@ class Player(pygame.sprite.Sprite):
         """Lance une attaque"""
         self.attack_cooldown = PROJECTILE_COOLDOWN
         self.state = "attack"
+        self.attack_anim_timer = 300  # Animation d'attaque pendant 300ms
 
     def take_damage(self, amount=1):
         """Le joueur prend des degats"""
@@ -442,10 +453,11 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.y += self.velocity_y
         self.on_ground = False
 
-        # Collision avec les plateformes
+        # Collision avec le sol uniquement (pas les plateformes en hauteur)
         if platforms:
             for platform in platforms:
-                if self.rect.colliderect(platform.rect):
+                # Les ennemis ne peuvent marcher que sur le sol, pas sur les plateformes
+                if platform.is_ground and self.rect.colliderect(platform.rect):
                     if self.velocity_y > 0:  # Tombe
                         self.rect.bottom = platform.rect.top
                         self.velocity_y = 0
@@ -775,6 +787,14 @@ class GameplayScene(Scene):
         # Debug
         self.debug_hitboxes = False
 
+        # Celebration (apres avoir battu le boss)
+        self.celebration_active = False
+        self.celebration_timer = 0
+        self.celebration_particles = []
+
+        # Affichage des degats
+        self.damage_numbers = []  # Liste: {"x", "y", "damage", "timer", "color"}
+
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
         self.font = pygame.font.Font(None, 32)
@@ -795,6 +815,7 @@ class GameplayScene(Scene):
         # Creer le joueur
         self.player = Player(character_id, 100, GROUND_Y)
         self.player.health = self.game.game_data["lives"]
+        self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
         self.all_sprites.add(self.player)
 
         # Charger le niveau
@@ -806,6 +827,14 @@ class GameplayScene(Scene):
         # Reset rythme
         self.beat_timer = 0
         self.combo = 0
+
+        # Reset celebration
+        self.celebration_active = False
+        self.celebration_timer = 0
+        self.celebration_particles = []
+
+        # Reset affichage des degats
+        self.damage_numbers = []
 
         # Jouer la musique du niveau
         self._play_level_music()
@@ -1115,12 +1144,13 @@ class GameplayScene(Scene):
     def _finish_ultimate(self):
         """Termine la sequence ultime et lance l'attaque"""
         self.ultimate_active = False
-        self.player.state = "idle"
+        self.player.state = "attack"
+        self.player.attack_anim_timer = 500  # Animation d'attaque pendant 500ms
 
         # Creer le projectile ultime avec les degats accumules
         direction = 1 if self.player.facing_right else -1
 
-        # Projectile principal puissant
+        # Projectile principal puissant - utilise l'image ultimate du joueur
         proj = Projectile(
             self.player.rect.centerx,
             self.player.rect.centery,
@@ -1128,10 +1158,20 @@ class GameplayScene(Scene):
             self.ultimate_total_damage
         )
         proj.speed = PROJECTILE_SPEED * 1.5
-        # Rendre le projectile plus gros visuellement
-        proj.image = pygame.Surface((PROJECTILE_WIDTH * 2, PROJECTILE_HEIGHT * 2), pygame.SRCALPHA)
-        pygame.draw.ellipse(proj.image, YELLOW, (0, 0, PROJECTILE_WIDTH * 2, PROJECTILE_HEIGHT * 2))
-        pygame.draw.ellipse(proj.image, ORANGE, (10, 5, PROJECTILE_WIDTH * 2 - 20, PROJECTILE_HEIGHT * 2 - 10))
+
+        # Utiliser l'image ultimate du joueur pour le projectile
+        ult_img = self.player.images.get("ultimate")
+        if ult_img:
+            # Agrandir l'image pour l'effet visuel
+            proj.image = pygame.transform.scale(ult_img, (PLAYER_WIDTH * 2, PLAYER_HEIGHT * 2))
+            if direction < 0:
+                proj.image = pygame.transform.flip(proj.image, True, False)
+        else:
+            # Fallback: placeholder colore
+            proj.image = pygame.Surface((PLAYER_WIDTH * 2, PLAYER_HEIGHT * 2), pygame.SRCALPHA)
+            color = (255, 200, 0) if self.player.character_id == 1 else (255, 150, 50)
+            proj.image.fill(color)
+
         proj.rect = proj.image.get_rect(center=proj.rect.center)
         self.player_projectiles.add(proj)
 
@@ -1150,6 +1190,11 @@ class GameplayScene(Scene):
             if self.timing_feedback_timer > 0:
                 self.timing_feedback_timer -= dt_ms
             return  # Ne pas mettre a jour le reste du jeu
+
+        # Pendant la celebration: animation seulement
+        if self.celebration_active:
+            self._update_celebration(dt_ms)
+            return
 
         # Input joueur normal
         keys = pygame.key.get_pressed()
@@ -1325,17 +1370,78 @@ class GameplayScene(Scene):
 
     def _check_level_end(self):
         """Verifie si le niveau est termine"""
+        if self.celebration_active:
+            return  # Deja en celebration
+
         if self.current_level == 3:
             # Niveau boss - victoire si boss mort
             if self.boss is None or self.boss not in self.enemies:
-                self._complete_level()
+                self._start_celebration()
         else:
             # Autres niveaux - atteindre la fin
             if self.player.rect.right >= self.level_width - 50:
                 self._complete_level()
 
+    def _start_celebration(self):
+        """Demarre l'animation de celebration apres avoir battu le boss"""
+        self.celebration_active = True
+        self.celebration_timer = 0
+        self.celebration_particles = []
+        # Generer des particules initiales
+        for _ in range(50):
+            self._spawn_celebration_particle()
+
+        # Jouer la musique de victoire
+        try:
+            music_path = SND_DIR / SND_VICTORY
+            pygame.mixer.music.load(str(music_path))
+            pygame.mixer.music.set_volume(0.7)
+            pygame.mixer.music.play()
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Impossible de charger la musique de victoire: {e}")
+
+    def _spawn_celebration_particle(self):
+        """Cree une particule de celebration (confetti)"""
+        particle = {
+            "x": random.randint(0, WIDTH),
+            "y": random.randint(-50, 0),
+            "vel_x": random.uniform(-2, 2),
+            "vel_y": random.uniform(2, 5),
+            "color": random.choice([YELLOW, PURPLE, GREEN, ORANGE, WHITE]),
+            "size": random.randint(5, 12),
+            "rotation": random.uniform(0, 360),
+            "rot_speed": random.uniform(-5, 5),
+        }
+        self.celebration_particles.append(particle)
+
+    def _update_celebration(self, dt_ms):
+        """Met a jour l'animation de celebration"""
+        self.celebration_timer += dt_ms
+
+        # Ajouter de nouvelles particules
+        if len(self.celebration_particles) < 100 and random.random() < 0.3:
+            self._spawn_celebration_particle()
+
+        # Mettre a jour les particules
+        for particle in self.celebration_particles[:]:
+            particle["x"] += particle["vel_x"]
+            particle["y"] += particle["vel_y"]
+            particle["rotation"] += particle["rot_speed"]
+
+            # Supprimer si hors ecran
+            if particle["y"] > HEIGHT + 50:
+                self.celebration_particles.remove(particle)
+
+        # Apres 7 secondes, passer a l'ecran de victoire
+        if self.celebration_timer >= 7000:
+            self._complete_level()
+
     def _complete_level(self):
         """Complete le niveau actuel"""
+        # Sauvegarder l'etat du joueur avant de changer de niveau
+        self.game.game_data["lives"] = self.player.health
+        self.game.game_data["ultimate_charge"] = self.player.ultimate_charge
+
         if self.current_level < 3:
             # Passer au niveau suivant
             self.game.game_data["current_level"] += 1
@@ -1407,6 +1513,54 @@ class GameplayScene(Scene):
         # Feedback timing
         if self.timing_feedback_timer > 0:
             self._draw_timing_feedback(screen)
+
+        # Celebration (apres avoir battu le boss)
+        if self.celebration_active:
+            self._draw_celebration(screen)
+
+    def _draw_celebration(self, screen):
+        """Dessine l'animation de celebration"""
+        # Fond semi-transparent dore
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((255, 215, 0, 50))  # Or transparent
+        screen.blit(overlay, (0, 0))
+
+        # Dessiner les particules (confettis)
+        for particle in self.celebration_particles:
+            # Dessiner un rectangle tourne (confetti)
+            size = particle["size"]
+            color = particle["color"]
+            x, y = int(particle["x"]), int(particle["y"])
+
+            # Simple rectangle pour le confetti
+            pygame.draw.rect(screen, color, (x - size//2, y - size//2, size, size))
+
+        # Texte "BOSS VAINCU!" avec effet de pulsation
+        pulse = 1.0 + math.sin(self.celebration_timer / 200) * 0.15
+        font_size = int(72 * pulse)
+        font = pygame.font.Font(None, font_size)
+
+        # Ombre du texte
+        shadow_text = font.render("BOSS VAINCU!", True, (50, 50, 50))
+        shadow_rect = shadow_text.get_rect(center=(WIDTH // 2 + 4, HEIGHT // 3 + 4))
+        screen.blit(shadow_text, shadow_rect)
+
+        # Texte principal
+        text = font.render("BOSS VAINCU!", True, YELLOW)
+        text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+        screen.blit(text, text_rect)
+
+        # Sous-texte
+        sub_font = pygame.font.Font(None, 36)
+        sub_text = sub_font.render("Tu es une vraie Rockstar!", True, WHITE)
+        sub_rect = sub_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 60))
+        screen.blit(sub_text, sub_rect)
+
+        # Compte a rebours avant victoire
+        remaining = max(0, 7000 - self.celebration_timer) // 1000 + 1
+        countdown_text = sub_font.render(f"Victoire dans {remaining}...", True, GRAY)
+        countdown_rect = countdown_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        screen.blit(countdown_text, countdown_rect)
 
     def _draw_placeholder_bg(self, screen):
         """Dessine un fond placeholder"""

@@ -35,6 +35,7 @@ class Game:
             "current_level": 1,
             "score": 0,
             "lives": 3,
+            "ultimate_charge": 0,
         }
 
         # Scenes disponibles
@@ -64,6 +65,7 @@ class Game:
         self.game_data["current_level"] = 1
         self.game_data["score"] = 0
         self.game_data["lives"] = 3
+        self.game_data["ultimate_charge"] = 0
         # Recreer la scene gameplay pour reset complet
         self.scenes[STATE_GAMEPLAY] = GameplayScene(self)
 

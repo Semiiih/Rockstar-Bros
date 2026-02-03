@@ -162,7 +162,7 @@ class MenuScene(Scene):
         screen.blit(title_text, title_rect)
 
         # Sous-titre
-        subtitle_text = self.font_small.render("Guitar Hero x Mario", True, WHITE)
+        subtitle_text = self.font_small.render("Guitar Hero", True, WHITE)
         subtitle_rect = subtitle_text.get_rect(center=(WIDTH // 2, 210))
         screen.blit(subtitle_text, subtitle_rect)
 
