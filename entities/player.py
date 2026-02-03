@@ -14,7 +14,7 @@ from settings import (
     IMG_PLAYER1_IDLE, IMG_PLAYER1_RUN1, IMG_PLAYER1_RUN2, IMG_PLAYER1_JUMP, IMG_PLAYER1_ATTACK,
     IMG_PLAYER2_IDLE, IMG_PLAYER2_RUN1, IMG_PLAYER2_RUN2, IMG_PLAYER2_JUMP, IMG_PLAYER2_ATTACK,
     IMG_PLAYER1_ULTIMATE, IMG_PLAYER2_ULTIMATE,
-    IMG_PLAYER1_CROUCH, IMG_PLAYER2_CROUCH,
+    IMG_PLAYER1_CROUCH1, IMG_PLAYER1_CROUCH2, IMG_PLAYER2_CROUCH1, IMG_PLAYER2_CROUCH2,
     CONTROLS,
 )
 
@@ -76,7 +76,8 @@ class Player(pygame.sprite.Sprite):
                 "jump": IMG_PLAYER1_JUMP,
                 "attack": IMG_PLAYER1_ATTACK,
                 "ultimate": IMG_PLAYER1_ULTIMATE,
-                "crouch": IMG_PLAYER1_CROUCH,
+                "crouch1": IMG_PLAYER1_CROUCH1,
+                "crouch2": IMG_PLAYER1_CROUCH2,
             }
         else:
             img_files = {
@@ -86,7 +87,8 @@ class Player(pygame.sprite.Sprite):
                 "jump": IMG_PLAYER2_JUMP,
                 "attack": IMG_PLAYER2_ATTACK,
                 "ultimate": IMG_PLAYER2_ULTIMATE,
-                "crouch": IMG_PLAYER2_CROUCH,
+                "crouch1": IMG_PLAYER2_CROUCH1,
+                "crouch2": IMG_PLAYER2_CROUCH2,
             }
 
         for key, filename in img_files.items():
@@ -101,8 +103,8 @@ class Player(pygame.sprite.Sprite):
                     img = pygame.transform.scale(img, (new_width, PLAYER_HEIGHT))
                 else:
                     img = pygame.transform.scale(img, (PLAYER_WIDTH, PLAYER_HEIGHT))
-                # Flipper l'image crouch car elle est orientee dans l'autre sens
-                if key == "crouch":
+                # Flipper les images crouch car elles sont orientees dans l'autre sens
+                if key in ("crouch1", "crouch2"):
                     img = pygame.transform.flip(img, True, False)
                 self.images[key] = img
             except (pygame.error, FileNotFoundError):
@@ -123,7 +125,9 @@ class Player(pygame.sprite.Sprite):
                 color = (255, 200, 0) if self.character_id == 1 else (255, 150, 50)
                 img = self._get_placeholder((PLAYER_WIDTH, PLAYER_HEIGHT), color)
         elif self.state == "crouch":
-            img = self.images.get("crouch")
+            # Animation crouch avec 2 frames
+            frame_key = "crouch1" if self.anim_frame == 0 else "crouch2"
+            img = self.images.get(frame_key)
             if img:
                 # Redimensionner l'image pour la hauteur accroupie
                 img = pygame.transform.scale(img, (PLAYER_WIDTH, self.crouch_height))
@@ -294,10 +298,12 @@ class Player(pygame.sprite.Sprite):
         else:
             self.state = "idle"
 
-        # Animation de course
-        if self.state == "run":
+        # Animation de course ou accroupi
+        if self.state in ("run", "crouch"):
             self.anim_timer += dt_ms
-            if self.anim_timer >= 150:  # Change frame toutes les 150ms
+            # Crouch anime plus lentement que la course
+            anim_speed = 250 if self.state == "crouch" else 150
+            if self.anim_timer >= anim_speed:
                 self.anim_timer = 0
                 self.anim_frame = (self.anim_frame + 1) % 2
 

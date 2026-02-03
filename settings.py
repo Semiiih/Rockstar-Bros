@@ -222,7 +222,8 @@ IMG_PLAYER1_RUN2 = "player1_run2.png"
 IMG_PLAYER1_JUMP = "player1_jump.png"
 IMG_PLAYER1_ATTACK = "player1_attack.png"
 IMG_PLAYER1_ULTIMATE = "player1_ultimate.png"
-IMG_PLAYER1_CROUCH = "player1_crouch.png"
+IMG_PLAYER1_CROUCH1 = "player1_crouch1.png"
+IMG_PLAYER1_CROUCH2 = "player1_crouch2.png"
 
 # Joueur 2
 IMG_PLAYER2_IDLE = "player2_idle.png"
@@ -231,7 +232,8 @@ IMG_PLAYER2_RUN2 = "player2_run2.png"
 IMG_PLAYER2_JUMP = "player2_jump.png"
 IMG_PLAYER2_ATTACK = "player2_attack.png"
 IMG_PLAYER2_ULTIMATE = "player2_ultimate.png"
-IMG_PLAYER2_CROUCH = "player2_crouch.png"
+IMG_PLAYER2_CROUCH1 = "player2_crouch1.png"
+IMG_PLAYER2_CROUCH2 = "player2_crouch2.png"
 
 # Ennemis - Hater
 IMG_HATER_IDLE = "hater_idle.png"
