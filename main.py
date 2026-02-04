@@ -7,10 +7,11 @@ import pygame
 import sys
 from settings import (
     WIDTH, HEIGHT, FPS, TITLE, BG_COLOR,
-    STATE_MENU, STATE_GAMEPLAY, STATE_PAUSE,
+    STATE_MENU, STATE_LEVEL_SELECT, STATE_GAMEPLAY, STATE_PAUSE,
     STATE_GAME_OVER, STATE_VICTORY
 )
 from scenes.menu import MenuScene
+from scenes.level_select import LevelSelectScene
 from scenes.gameplay import GameplayScene
 from scenes.pause import PauseScene
 from scenes.game_over import GameOverScene
@@ -36,10 +37,13 @@ class Game:
         # Donnees partagees entre scenes
         self.game_data = {
             "selected_character": 1,
-            "current_level": 1,
+            "selected_level": 1,
+            "current_stage": 1,
             "score": 0,
             "lives": 3,
             "ultimate_charge": 0,
+            "completed_levels": [],  # Liste des IDs de niveaux completes
+            "level_stars": {},  # {level_id: stars_count}
         }
 
         # Scenes disponibles
@@ -61,6 +65,7 @@ class Game:
     def _init_scenes(self):
         """Initialise toutes les scenes du jeu"""
         self.scenes[STATE_MENU] = MenuScene(self)
+        self.scenes[STATE_LEVEL_SELECT] = LevelSelectScene(self)
         self.scenes[STATE_GAMEPLAY] = GameplayScene(self)
         self.scenes[STATE_PAUSE] = PauseScene(self)
         self.scenes[STATE_GAME_OVER] = GameOverScene(self)
@@ -166,10 +171,12 @@ class Game:
 
     def reset_game(self):
         """Reinitialise les donnees du jeu pour une nouvelle partie"""
-        self.game_data["current_level"] = 1
+        self.game_data["selected_level"] = 1
+        self.game_data["current_stage"] = 1
         self.game_data["score"] = 0
         self.game_data["lives"] = 3
         self.game_data["ultimate_charge"] = 0
+        # Note: on ne reset pas completed_levels et level_stars pour garder la progression
         # Recreer la scene gameplay pour reset complet
         self.scenes[STATE_GAMEPLAY] = GameplayScene(self)
 

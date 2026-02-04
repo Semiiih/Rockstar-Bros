@@ -8,7 +8,7 @@ import math
 from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, GRAY, PURPLE, ORANGE,
-    STATE_GAMEPLAY, CONTROLS,
+    STATE_LEVEL_SELECT, CONTROLS,
     IMG_DIR, IMG_HOME, IMG_LOGO, IMG_PLAYER_DIR,
     IMG_PLAYER1_IDLE, IMG_PLAYER2_IDLE,
     PLAYER_WIDTH, PLAYER_HEIGHT,
@@ -146,7 +146,8 @@ class MenuScene(Scene):
             # Lancer le jeu avec le personnage selectionne
             self.game.game_data["selected_character"] = self.selected_character
             self.game.reset_game()
-            self.game.change_scene(STATE_GAMEPLAY)
+            # Aller vers la selection de niveau
+            self.game.change_scene(STATE_LEVEL_SELECT)
         elif event.key == pygame.K_ESCAPE:
             self.menu_state = "main"
 
