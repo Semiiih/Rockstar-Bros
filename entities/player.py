@@ -30,10 +30,9 @@ class Player(pygame.sprite.Sprite):
         self.images = {}
         self._load_images()
 
-        # Sprite de base - utiliser l'image idle si disponible
-        idle_img = self.images.get("idle")
-        if idle_img:
-            self.image = idle_img
+        # Sprite de base - utiliser l'image idle si disponible, sinon placeholder
+        if self.images.get("idle"):
+            self.image = self.images["idle"]
         else:
             self.image = self._get_placeholder((PLAYER_WIDTH, PLAYER_HEIGHT), PURPLE)
         self.rect = self.image.get_rect(midbottom=(x, y))
@@ -199,12 +198,11 @@ class Player(pygame.sprite.Sprite):
         if self.velocity_y > MAX_FALL_SPEED:
             self.velocity_y = MAX_FALL_SPEED
 
-        # Mouvement
-        self.rect.x += self.velocity_x
-        self._check_horizontal_collisions(platforms)
+        # Mouvement horizontal avec collision pixel-perfect
+        self._move_horizontal(self.velocity_x, platforms)
 
-        self.rect.y += self.velocity_y
-        self._check_vertical_collisions(platforms)
+        # Mouvement vertical avec collision pixel-perfect
+        self._move_vertical(self.velocity_y, platforms)
 
         # Si le joueur tombe pendant qu'il est accroupi, restaurer la taille
         if not self.on_ground and self.is_crouching:
@@ -253,29 +251,64 @@ class Player(pygame.sprite.Sprite):
         # Mise a jour de l'image
         self.image = self._get_current_image()
 
-    def _check_horizontal_collisions(self, platforms):
-        """Verifie les collisions horizontales"""
-        for platform in platforms:
-            if self.rect.colliderect(platform.rect):
-                if self.velocity_x > 0:
-                    self.rect.right = platform.rect.left
-                elif self.velocity_x < 0:
-                    self.rect.left = platform.rect.right
+    def _move_horizontal(self, dx, platforms):
+        """Deplace le joueur horizontalement pixel par pixel pour collision precise"""
+        if dx == 0:
+            return
 
-    def _check_vertical_collisions(self, platforms):
-        """Verifie les collisions verticales"""
+        sign = 1 if dx > 0 else -1
+        remaining = abs(dx)
+
+        while remaining > 0:
+            step = min(1, remaining)
+            self.rect.x += sign * step
+            remaining -= step
+
+            # Verifier collision
+            for platform in platforms:
+                if self.rect.colliderect(platform.rect):
+                    # Collision detectee, reculer et ajuster
+                    if sign > 0:
+                        self.rect.right = platform.rect.left
+                    else:
+                        self.rect.left = platform.rect.right
+                    return
+
+    def _move_vertical(self, dy, platforms):
+        """Deplace le joueur verticalement pixel par pixel pour collision precise"""
         self.on_ground = False
 
-        for platform in platforms:
-            if self.rect.colliderect(platform.rect):
-                if self.velocity_y > 0:
+        if dy == 0:
+            # Verifier quand meme si on est sur une plateforme
+            self.rect.y += 1
+            for platform in platforms:
+                if self.rect.colliderect(platform.rect):
                     self.rect.bottom = platform.rect.top
-                    self.velocity_y = 0
                     self.on_ground = True
-                elif self.velocity_y < 0:
-                    self.rect.top = platform.rect.bottom
-                    self.velocity_y = 0
-        # Plus de sol invisible - le joueur peut tomber dans le vide!
+                    break
+            if not self.on_ground:
+                self.rect.y -= 1
+            return
+
+        sign = 1 if dy > 0 else -1
+        remaining = abs(dy)
+
+        while remaining > 0:
+            step = min(1, remaining)
+            self.rect.y += sign * step
+            remaining -= step
+
+            # Verifier collision
+            for platform in platforms:
+                if self.rect.colliderect(platform.rect):
+                    if sign > 0:  # Tombe vers le bas
+                        self.rect.bottom = platform.rect.top
+                        self.velocity_y = 0
+                        self.on_ground = True
+                    else:  # Monte vers le haut
+                        self.rect.top = platform.rect.bottom
+                        self.velocity_y = 0
+                    return
 
     def _update_animation(self, dt_ms):
         """Met a jour l'animation"""

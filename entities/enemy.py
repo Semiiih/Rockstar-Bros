@@ -161,18 +161,29 @@ class Enemy(pygame.sprite.Sprite):
         if self.velocity_y > MAX_FALL_SPEED:
             self.velocity_y = MAX_FALL_SPEED
 
-        # Mouvement vertical
-        self.rect.y += self.velocity_y
+        # Mouvement vertical pixel par pixel pour collision precise
         self.on_ground = False
-
-        # Collision avec le sol uniquement (pas les plateformes en hauteur)
         if platforms:
-            for platform in platforms:
-                if platform.is_ground and self.rect.colliderect(platform.rect):
-                    if self.velocity_y > 0:
-                        self.rect.bottom = platform.rect.top
-                        self.velocity_y = 0
-                        self.on_ground = True
+            dy = self.velocity_y
+            if dy != 0:
+                sign = 1 if dy > 0 else -1
+                remaining = abs(dy)
+
+                while remaining > 0:
+                    step = min(1, remaining)
+                    self.rect.y += sign * step
+                    remaining -= step
+
+                    # Collision avec le sol uniquement
+                    for platform in platforms:
+                        if platform.is_ground and self.rect.colliderect(platform.rect):
+                            if sign > 0:  # Tombe
+                                self.rect.bottom = platform.rect.top
+                                self.velocity_y = 0
+                                self.on_ground = True
+                            break
+                    if self.on_ground:
+                        break
 
         # Verifier si un autre ennemi est trop proche (pour eviter l'oscillation)
         blocked_left = False
@@ -269,11 +280,7 @@ class Enemy(pygame.sprite.Sprite):
         if not self.facing_right:
             img = pygame.transform.flip(img, True, False)
 
-        # Flash blanc si touche
-        if self.hit_flash > 0:
-            flash_surf = img.copy()
-            flash_surf.fill((255, 255, 255, 128), special_flags=pygame.BLEND_RGBA_ADD)
-            img = flash_surf
+        draw_rect = self.rect.move(-camera_x, 0)
 
         # Effet de transparence si mort (commence a disparaitre apres 1.5s)
         if self.is_dead:
@@ -282,8 +289,25 @@ class Enemy(pygame.sprite.Sprite):
                 img = img.copy()
                 img.set_alpha(alpha)
 
-        draw_rect = self.rect.move(-camera_x, 0)
         screen.blit(img, draw_rect)
+
+        # Effet d'impact rouge quand touche
+        if self.hit_flash > 0:
+            # Cercle d'impact rouge qui s'agrandit et disparait
+            flash_progress = 1.0 - (self.hit_flash / 100)  # 0 -> 1
+            impact_radius = int(15 + flash_progress * 25)
+            impact_alpha = int(200 * (1 - flash_progress))
+
+            impact_surf = pygame.Surface((impact_radius * 2, impact_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(impact_surf, (255, 50, 50, impact_alpha),
+                             (impact_radius, impact_radius), impact_radius)
+            # Cercle interieur plus clair
+            inner_radius = int(impact_radius * 0.6)
+            pygame.draw.circle(impact_surf, (255, 150, 100, impact_alpha // 2),
+                             (impact_radius, impact_radius), inner_radius)
+
+            impact_pos = (draw_rect.centerx - impact_radius, draw_rect.centery - impact_radius)
+            screen.blit(impact_surf, impact_pos)
 
 
 class Boss(pygame.sprite.Sprite):
@@ -466,14 +490,24 @@ class Boss(pygame.sprite.Sprite):
         if not self.facing_right:
             img = pygame.transform.flip(img, True, False)
 
-        # Flash blanc si touche
-        if self.hit_flash > 0:
-            flash_surf = img.copy()
-            flash_surf.fill((255, 255, 255, 128), special_flags=pygame.BLEND_RGBA_ADD)
-            img = flash_surf
-
         draw_rect = self.rect.move(-camera_x, 0)
         screen.blit(img, draw_rect)
+
+        # Effet d'impact rouge quand touche
+        if self.hit_flash > 0:
+            flash_progress = 1.0 - (self.hit_flash / 100)
+            impact_radius = int(25 + flash_progress * 40)  # Plus grand pour le boss
+            impact_alpha = int(200 * (1 - flash_progress))
+
+            impact_surf = pygame.Surface((impact_radius * 2, impact_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(impact_surf, (255, 50, 50, impact_alpha),
+                             (impact_radius, impact_radius), impact_radius)
+            inner_radius = int(impact_radius * 0.6)
+            pygame.draw.circle(impact_surf, (255, 150, 100, impact_alpha // 2),
+                             (impact_radius, impact_radius), inner_radius)
+
+            impact_pos = (draw_rect.centerx - impact_radius, draw_rect.centery - impact_radius)
+            screen.blit(impact_surf, impact_pos)
 
         # Barre de vie du boss
         bar_width = BOSS_WIDTH

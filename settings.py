@@ -122,7 +122,7 @@ LANE_KEYS = [pygame.K_f, pygame.K_g, pygame.K_h]  # Touches F, G, H
 # ENNEMIS
 # =============================================================================
 # Hater (ennemi de base)
-HATER_SPEED = 2
+HATER_SPEED = 1.2
 HATER_HEALTH = 2
 HATER_DAMAGE = 1
 HATER_WIDTH = 48
@@ -131,7 +131,7 @@ HATER_DETECTION_RANGE = 300
 HATER_SCORE = 100
 
 # Rockstar rival
-RIVAL_SPEED = 3
+RIVAL_SPEED = 1.8
 RIVAL_HEALTH = 3
 RIVAL_DAMAGE = 1
 RIVAL_WIDTH = 56

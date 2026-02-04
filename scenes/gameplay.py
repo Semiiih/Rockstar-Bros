@@ -356,7 +356,7 @@ class GameplayScene(Scene):
 
             self.ultimate_results.append(result)
             self.timing_feedback = result
-            self.timing_feedback_timer = 300
+            self.timing_feedback_timer = 800  # Plus long pour etre lisible
 
             # Supprimer la note
             self.ultimate_notes.remove(closest_note)
@@ -400,7 +400,7 @@ class GameplayScene(Scene):
 
         # Afficher les degats totaux
         self.timing_feedback = f"DAMAGE: {self.ultimate_total_damage}!"
-        self.timing_feedback_timer = 1000
+        self.timing_feedback_timer = 2000  # Plus long pour etre lisible
 
     def update(self, dt):
         """Met a jour le gameplay"""
@@ -430,7 +430,7 @@ class GameplayScene(Scene):
         self.player.update(dt, self.platforms)
 
         for proj in self.player_projectiles:
-            proj.update(dt)
+            proj.update(dt, self.camera_x)
 
         for proj in self.boss_projectiles:
             proj.update(dt)
@@ -462,6 +462,9 @@ class GameplayScene(Scene):
         # Feedback timer
         if self.timing_feedback_timer > 0:
             self.timing_feedback_timer -= dt_ms
+
+        # Mise a jour des nombres de degats flottants
+        self._update_damage_numbers(dt_ms)
 
         # Verifier fin de niveau
         self._check_level_end()
@@ -496,7 +499,7 @@ class GameplayScene(Scene):
                 notes_to_remove.append(note)
                 self.ultimate_results.append("MISS")
                 self.timing_feedback = "MISS"
-                self.timing_feedback_timer = 300
+                self.timing_feedback_timer = 800  # Plus long pour etre lisible
 
         for note in notes_to_remove:
             self.ultimate_notes.remove(note)
@@ -545,6 +548,25 @@ class GameplayScene(Scene):
                         enemy1.rect.x += push_amount
                         enemy2.rect.x -= push_amount
 
+    def _add_damage_number(self, x, y, damage, color=YELLOW):
+        """Ajoute un nombre de degats flottant"""
+        self.damage_numbers.append({
+            "x": x,
+            "y": y,
+            "damage": damage,
+            "timer": 1500,  # 1.5 secondes d'affichage
+            "color": color,
+            "offset_y": 0,
+        })
+
+    def _update_damage_numbers(self, dt_ms):
+        """Met a jour les nombres de degats flottants"""
+        for dmg in self.damage_numbers[:]:
+            dmg["timer"] -= dt_ms
+            dmg["offset_y"] -= 1.5  # Monte vers le haut
+            if dmg["timer"] <= 0:
+                self.damage_numbers.remove(dmg)
+
     def _check_collisions(self):
         """Verifie toutes les collisions"""
         # Projectiles joueur -> Ennemis
@@ -554,6 +576,14 @@ class GameplayScene(Scene):
                     proj.kill()
                     is_dead = enemy.take_damage(proj.damage)
                     self.player.add_ultimate_charge(ULTIMATE_CHARGE_PER_HIT)
+
+                    # Afficher les degats infliges
+                    self._add_damage_number(
+                        enemy.rect.centerx,
+                        enemy.rect.top,
+                        proj.damage,
+                        YELLOW
+                    )
 
                     if is_dead:
                         self.game.game_data["score"] += enemy.score_value
@@ -582,6 +612,13 @@ class GameplayScene(Scene):
                     enemy.is_dead = True
                     enemy.state = "dead"
                     self.game.game_data["score"] += enemy.score_value
+                    # Afficher "STOMP!" ou les degats
+                    self._add_damage_number(
+                        enemy.rect.centerx,
+                        enemy.rect.top,
+                        enemy.max_health,
+                        ORANGE
+                    )
                     # Faire rebondir le joueur
                     self.player.velocity_y = -10
                     self.player.rect.bottom = enemy.rect.top
@@ -589,9 +626,14 @@ class GameplayScene(Scene):
                     # Collision normale - le joueur prend des degats
                     if self.player.take_damage(enemy.damage):
                         self.game.game_data["lives"] = self.player.health
-                        # Repousser le joueur
-                        knockback = -5 if self.player.rect.centerx < enemy.rect.centerx else 5
-                        self.player.rect.x += knockback * 10
+                        # Repousser le joueur legerement (sans teleportation)
+                        if self.player.rect.centerx < enemy.rect.centerx:
+                            self.player.rect.x -= 20
+                        else:
+                            self.player.rect.x += 20
+                        # Petit saut de recul
+                        if self.player.on_ground:
+                            self.player.velocity_y = -5
 
         # Joueur -> Pickups
         for pickup in self.pickups:
@@ -769,6 +811,9 @@ class GameplayScene(Scene):
         else:
             screen.blit(self.player.image, player_draw_rect)
 
+        # Nombres de degats flottants
+        self._draw_damage_numbers(screen)
+
         # Debug hitboxes
         if self.debug_hitboxes:
             self._draw_debug_hitboxes(screen)
@@ -875,6 +920,45 @@ class GameplayScene(Scene):
         for proj in self.boss_projectiles:
             proj_rect = proj.rect.move(-self.camera_x, 0)
             pygame.draw.rect(screen, ORANGE, proj_rect, 2)
+
+    def _draw_damage_numbers(self, screen):
+        """Dessine les nombres de degats flottants"""
+        for dmg in self.damage_numbers:
+            # Position avec camera
+            draw_x = dmg["x"] - self.camera_x
+            draw_y = dmg["y"] + dmg["offset_y"]
+
+            # Alpha basé sur le timer restant (fade out)
+            alpha = min(255, int(dmg["timer"] / 1500 * 255))
+
+            # Taille selon les degats
+            if dmg["damage"] >= 5:
+                font_size = 36
+            elif dmg["damage"] >= 3:
+                font_size = 30
+            else:
+                font_size = 24
+
+            try:
+                dmg_font = pygame.font.Font(str(FONT_METAL_MANIA), font_size)
+            except (pygame.error, FileNotFoundError):
+                dmg_font = pygame.font.Font(None, font_size)
+
+            # Texte des degats
+            text = f"-{dmg['damage']}"
+            color = dmg["color"]
+
+            # Ombre
+            shadow_surf = dmg_font.render(text, True, (0, 0, 0))
+            shadow_surf.set_alpha(alpha)
+            shadow_rect = shadow_surf.get_rect(center=(draw_x + 2, draw_y + 2))
+            screen.blit(shadow_surf, shadow_rect)
+
+            # Texte principal
+            text_surf = dmg_font.render(text, True, color)
+            text_surf.set_alpha(alpha)
+            text_rect = text_surf.get_rect(center=(draw_x, draw_y))
+            screen.blit(text_surf, text_rect)
 
     def _draw_hud(self, screen):
         """Dessine le HUD"""
