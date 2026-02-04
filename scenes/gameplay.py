@@ -1,27 +1,23 @@
 """
 Rockstar Bros - Scene de gameplay
-Coeur du jeu: joueur, ennemis, projectiles, collisions, systeme rythme
+Coeur du jeu: gestion du niveau, collisions, systeme rythme
 """
 
 import pygame
 import random
 import math
 from scenes.base import Scene
+from entities import Player, Projectile, Enemy, Boss, Platform, Pickup
+from level_loader import get_loader
 from settings import (
-    WIDTH, HEIGHT, WHITE, YELLOW, RED, GREEN, BLUE, PURPLE, ORANGE, GRAY, BLACK, DARK_GRAY,
-    STATE_PAUSE, STATE_GAME_OVER, STATE_VICTORY, CONTROLS,
-    # Physique
-    GRAVITY, MAX_FALL_SPEED, GROUND_Y,
-    # Joueur
-    PLAYER_SPEED, PLAYER_JUMP_FORCE, PLAYER_MAX_HEALTH,
-    PLAYER_INVINCIBILITY_TIME, PLAYER_WIDTH, PLAYER_HEIGHT,
-    # Attaques
-    PROJECTILE_SPEED, PROJECTILE_COOLDOWN, PROJECTILE_WIDTH, PROJECTILE_HEIGHT,
-    PROJECTILE_DAMAGE, ULTIMATE_CHARGE_MAX, ULTIMATE_CHARGE_PER_HIT,
-    # Ultime (sequence rythmique Guitar Hero)
+    WIDTH, HEIGHT, WHITE, YELLOW, RED, GREEN, BLUE, PURPLE, ORANGE, GRAY, DARK_GRAY,
+    STATE_PAUSE, STATE_GAME_OVER, STATE_VICTORY, STATE_LEVEL_SELECT, STATE_MENU, CONTROLS,
+    GROUND_Y,
+    PLAYER_MAX_HEALTH, PLAYER_WIDTH, PLAYER_HEIGHT,
+    PROJECTILE_SPEED,
+    ULTIMATE_CHARGE_MAX, ULTIMATE_CHARGE_PER_HIT,
     ULTIMATE_BASE_DAMAGE, ULTIMATE_DAMAGE_PER_PERFECT, ULTIMATE_DAMAGE_PER_GOOD,
     ULTIMATE_DAMAGE_PER_OK, ULTIMATE_CHARGE_PER_PICKUP, ULTIMATE_NOTE_COUNT,
-    # Guitar Hero (notes qui tombent)
     NOTE_FALL_SPEED, NOTE_SPAWN_INTERVAL,
     HIT_ZONE_PERFECT, HIT_ZONE_GOOD, HIT_ZONE_OK,
     NOTE_SIZE, LANE_WIDTH, LANE_COUNT, TRACK_HEIGHT, TRACK_WIDTH,
@@ -49,8 +45,6 @@ from settings import (
     IMG_BG_LEVEL1, IMG_BG_LEVEL2, IMG_BG_BOSS,
     IMG_HEART_FULL, IMG_HEART_EMPTY, IMG_BOSS_INTRO,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
-    IMG_NOTE, IMG_MEDIATOR, IMG_AMPLI,
-    # HUD
     HUD_MARGIN, HUD_HEALTH_SIZE,
     # Sons
     SND_DIR, SND_MUSIC_LEVEL1, SND_MUSIC_LEVEL2, SND_MUSIC_BOSS, SND_MUSIC_BOSS_INTRO, SND_VICTORY, SND_DEATH, SND_JUMP, SND_PLAYER_SHOOT, SND_ENEMY_DEATH, SND_BONUS_PICKUP,
@@ -765,9 +759,15 @@ class GameplayScene(Scene):
         # Camera
         self.camera_x = 0
 
-        # Niveau
-        self.current_level = 1
-        self.level_width = LEVEL_LENGTHS[1]
+        # Niveau et stage
+        self.current_level_id = 1
+        self.current_stage_id = 1
+        self.level_data = None
+        self.stage_data = None
+        self.level_width = 3000
+
+        # Loader de niveaux
+        self.loader = get_loader()
 
         # Systeme ULTIME (Guitar Hero - notes qui tombent)
         self.ultimate_active = False
@@ -795,7 +795,20 @@ class GameplayScene(Scene):
         # Celebration (apres avoir battu le boss)
         self.celebration_active = False
         self.celebration_timer = 0
-        self.celebration_particles = []
+
+        # Animation de mort du boss
+        self.boss_death_active = False
+        self.boss_death_timer = 0
+        self.boss_death_image = None
+        self.boss_death_pos = (0, 0)
+        self.boss_death_alpha = 255
+        self.boss_death_zoom = 1.0
+        self.target_camera_x = 0
+
+        # Menu de victoire apres mort du boss
+        self.victory_menu_active = False
+        self.victory_menu_selected = 0
+        self.victory_menu_options = ["Continuer", "Retour"]
 
         # Transition vers boss (image intro combat final)
         self.boss_intro_active = False
@@ -823,9 +836,19 @@ class GameplayScene(Scene):
             self.font = pygame.font.Font(None, 26)
             self.font_big = pygame.font.Font(None, 48)
 
-        # Recuperer les donnees du jeu
-        self.current_level = self.game.game_data["current_level"]
+        # Recuperer les donnees du jeu et du niveau/stage
+        self.current_level_id = kwargs.get('level_id', self.game.game_data.get("selected_level", 1))
+        self.current_stage_id = kwargs.get('stage_id', self.game.game_data.get("current_stage", 1))
         character_id = self.game.game_data["selected_character"]
+
+        # Charger les donnees du niveau et du stage depuis JSON
+        self.level_data = self.loader.load_level(self.current_level_id)
+        if self.level_data:
+            self.stage_data = self.loader.get_stage(self.current_level_id, self.current_stage_id)
+        else:
+            print(f"Error: Could not load level {self.current_level_id}")
+            self.game.change_scene(STATE_LEVEL_SELECT)
+            return
 
         # Reset des groupes
         self.all_sprites.empty()
@@ -835,14 +858,29 @@ class GameplayScene(Scene):
         self.boss_projectiles.empty()
         self.pickups.empty()
 
+        # Obtenir la position de spawn du joueur depuis le stage
+        spawn_x = 100
+        spawn_y = GROUND_Y
+        if self.stage_data:
+            spawn_data = self.stage_data.get('player_spawn', {})
+            spawn_x = spawn_data.get('x', 100)
+            spawn_y = spawn_data.get('y', GROUND_Y)
+
         # Creer le joueur
-        self.player = Player(character_id, 100, GROUND_Y, scene=self)
-        self.player.health = self.game.game_data["lives"]
-        self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
+        self.player = Player(character_id, spawn_x, spawn_y)
+        # Si c'est le premier stage d'un niveau, remettre les vies au max
+        if self.current_stage_id == 1:
+            self.player.health = PLAYER_MAX_HEALTH
+            self.game.game_data["lives"] = PLAYER_MAX_HEALTH
+            self.player.ultimate_charge = 0
+            self.game.game_data["ultimate_charge"] = 0
+        else:
+            self.player.health = self.game.game_data["lives"]
+            self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
         self.all_sprites.add(self.player)
 
-        # Charger le niveau
-        self._load_level()
+        # Charger le stage depuis la config
+        self._load_stage()
 
         # Reset camera
         self.camera_x = 0
@@ -854,13 +892,27 @@ class GameplayScene(Scene):
         # Reset celebration
         self.celebration_active = False
         self.celebration_timer = 0
-        self.celebration_particles = []
+
+        # Reset boss death animation
+        self.boss_death_active = False
+        self.boss_death_timer = 0
+        self.boss_death_alpha = 255
+        self.boss_death_zoom = 1.0
+        self.victory_menu_active = False
+        self.victory_menu_selected = 0
+
+        # Charger l'image de mort du boss
+        try:
+            boss_death_path = IMG_ENEMIES_DIR / "boss_death.png"
+            self.boss_death_image = pygame.image.load(str(boss_death_path)).convert_alpha()
+        except (pygame.error, FileNotFoundError):
+            self.boss_death_image = None
 
         # Reset affichage des degats
         self.damage_numbers = []
 
         # Jouer la musique du niveau
-        self._play_level_music()
+        self._play_stage_music()
 
     def _play_level_music(self):
         """Charge et joue la musique du niveau actuel"""
@@ -906,181 +958,93 @@ class GameplayScene(Scene):
             except Exception as e2:
                 print(f"Fallback aussi echoue: {e2}")
 
-    def _load_level(self):
-        """Charge le niveau actuel"""
-        self.level_width = LEVEL_LENGTHS.get(self.current_level, 3000)
+    def _load_stage(self):
+        """Charge le stage actuel depuis la config JSON"""
+        if not self.stage_data:
+            print("Error: No stage data")
+            return
+
+        # Obtenir la largeur du stage
+        self.level_width = self.stage_data.get('width', 3000)
+
+        # Charger le background
         self._load_background()
 
-        if self.current_level == 1:
-            self._setup_level_1()
-        elif self.current_level == 2:
-            self._setup_level_2()
-        elif self.current_level == 3:
-            self._setup_level_3()
+        # Charger les segments de sol
+        for segment in self.stage_data.get('ground_segments', []):
+            x = segment.get('x', 0)
+            y = segment.get('y', GROUND_Y)
+            width = segment.get('width', 1000)
+            height = HEIGHT - y + 100
+            ground = Platform(x, y, width, height, is_ground=True)
+            self.platforms.add(ground)
+
+        # Charger les plateformes
+        for plat_data in self.stage_data.get('platforms', []):
+            x = plat_data.get('x', 0)
+            y = plat_data.get('y', 400)
+            width = plat_data.get('width', 150)
+            height = plat_data.get('height', 30)
+            plat = Platform(x, y, width, height)
+            self.platforms.add(plat)
+
+        # Charger les ennemis
+        for enemy_data in self.stage_data.get('enemies', []):
+            x = enemy_data.get('x', 0)
+            etype = enemy_data.get('type', 'hater')
+            y = GROUND_Y  # Les ennemis spawns sur le sol par defaut
+            enemy = Enemy(x, y, etype)
+            self.enemies.add(enemy)
+
+        # Charger les pickups
+        for pickup_data in self.stage_data.get('pickups', []):
+            x = pickup_data.get('x', 0)
+            y = pickup_data.get('y', 400)
+            ptype = pickup_data.get('type', 'note')
+            pickup = Pickup(x, y, ptype)
+            self.pickups.add(pickup)
+
+        # Charger le boss si c'est un stage de boss
+        boss_data = self.stage_data.get('boss')
+        if boss_data:
+            boss_x = boss_data.get('x', WIDTH - 200)
+            self.boss = Boss(boss_x, GROUND_Y)
+            self.enemies.add(self.boss)
 
     def _load_background(self):
-        """Charge le background du niveau"""
-        bg_files = {
-            1: IMG_BG_LEVEL1,
-            2: IMG_BG_LEVEL2,
-            3: IMG_BG_BOSS,
-        }
+        """Charge le background du stage"""
+        if not self.stage_data:
+            return
+
         try:
-            path = IMG_BG_DIR / bg_files.get(self.current_level, IMG_BG_LEVEL1)
-            self.background = pygame.image.load(str(path)).convert()
-            self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
-        except (pygame.error, FileNotFoundError):
+            bg_file = self.stage_data.get('background')
+            if bg_file:
+                path = IMG_BG_DIR / bg_file
+                self.background = pygame.image.load(str(path)).convert()
+                self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Could not load background: {e}")
             self.background = None
 
-    def _setup_level_1(self):
-        """Configure le niveau 1 - Coulisses (tutoriel)"""
-        # Sol avec quelques trous (tutoriel)
-        ground_segments = [
-            (0, GROUND_Y, 700),      # Debut
-            (800, GROUND_Y, 500),    # Apres premier trou
-            (1400, GROUND_Y, 600),   # Milieu
-            (2100, GROUND_Y, 900),   # Fin
-        ]
-        for x, y, w in ground_segments:
-            ground = Platform(x, y, w, HEIGHT - GROUND_Y + 100, is_ground=True)
-            self.platforms.add(ground)
-
-        # Plateformes (incluant celles au-dessus des trous)
-        platform_positions = [
-            (300, 520, 200, 30),
-            (600, 450, 150, 30),
-            (720, 550, 100, 30),   # Au-dessus du trou 1
-            (900, 380, 180, 30),
-            (1200, 480, 200, 30),
-            (1320, 550, 100, 30),  # Au-dessus du trou 2
-            (1600, 400, 150, 30),
-            (2000, 550, 120, 30),  # Au-dessus du trou 3
-            (2400, 450, 180, 30),
-            (2700, 520, 150, 30),
-        ]
-        for x, y, w, h in platform_positions:
-            plat = Platform(x, y, w, h)
-            self.platforms.add(plat)
-
-        # Ennemis (Haters uniquement)
-        enemy_positions = [
-            (500, GROUND_Y, "hater"),
-            (800, GROUND_Y, "hater"),
-            (1100, GROUND_Y, "hater"),
-            (1500, GROUND_Y, "hater"),
-            (1900, GROUND_Y, "hater"),
-            (2300, GROUND_Y, "hater"),
-        ]
-        for x, y, etype in enemy_positions:
-            enemy = Enemy(x, y, etype)
-            self.enemies.add(enemy)
-
-        # Pickups
-        pickup_positions = [
-            (400, 480, "note"),
-            (700, 410, "note"),
-            (1000, 340, "mediator"),
-            (1400, 440, "note"),
-            (1800, 360, "note"),
-            (2200, 400, "mediator"),
-        ]
-        for x, y, ptype in pickup_positions:
-            pickup = Pickup(x, y, ptype)
-            self.pickups.add(pickup)
-
-    def _setup_level_2(self):
-        """Configure le niveau 2 - Scene (challenge)"""
-        # Sol avec trous
-        ground_segments = [
-            (0, GROUND_Y, 800),
-            (1000, GROUND_Y, 600),
-            (1800, GROUND_Y, 800),
-            (2800, GROUND_Y, 1200),
-        ]
-        for x, y, w in ground_segments:
-            ground = Platform(x, y, w, HEIGHT - GROUND_Y + 100, is_ground=True)
-            self.platforms.add(ground)
-
-        # Plateformes (plus vertical)
-        platform_positions = [
-            (300, 500, 150, 30),
-            (500, 400, 120, 30),
-            (700, 300, 150, 30),
-            (850, 450, 100, 30),  # Au-dessus du trou
-            (950, 550, 80, 30),
-            (1100, 480, 150, 30),
-            (1400, 380, 120, 30),
-            (1600, 280, 150, 30),
-            (1700, 450, 100, 30),
-            (2000, 500, 200, 30),
-            (2400, 400, 150, 30),
-            (2700, 300, 180, 30),
-            (3000, 450, 150, 30),
-            (3400, 380, 200, 30),
-        ]
-        for x, y, w, h in platform_positions:
-            plat = Platform(x, y, w, h)
-            self.platforms.add(plat)
-
-        # Ennemis (Haters et Rivals)
-        enemy_positions = [
-            (400, GROUND_Y, "hater"),
-            (600, GROUND_Y, "hater"),
-            (1200, GROUND_Y, "rival"),
-            (1500, GROUND_Y, "hater"),
-            (2100, GROUND_Y, "rival"),
-            (2500, GROUND_Y, "hater"),
-            (2900, GROUND_Y, "rival"),
-            (3200, GROUND_Y, "hater"),
-            (3600, GROUND_Y, "rival"),
-        ]
-        for x, y, etype in enemy_positions:
-            enemy = Enemy(x, y, etype)
-            self.enemies.add(enemy)
-
-        # Pickups
-        pickup_positions = [
-            (350, 460, "note"),
-            (550, 360, "note"),
-            (750, 260, "mediator"),
-            (1150, 440, "note"),
-            (1450, 340, "ampli"),
-            (1650, 240, "note"),
-            (2050, 460, "note"),
-            (2450, 360, "mediator"),
-            (2750, 260, "note"),
-            (3050, 410, "ampli"),
-            (3450, 340, "note"),
-        ]
-        for x, y, ptype in pickup_positions:
-            pickup = Pickup(x, y, ptype)
-            self.pickups.add(pickup)
-
-    def _setup_level_3(self):
-        """Configure le niveau 3 - Boss Arena"""
-        # Sol de l'arene
-        ground = Platform(0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y + 100, is_ground=True)
-        self.platforms.add(ground)
-
-        # Quelques plateformes pour esquiver
-        platform_positions = [
-            (200, 500, 150, 30),
-            (WIDTH - 350, 500, 150, 30),
-            (WIDTH // 2 - 75, 400, 150, 30),
-        ]
-        for x, y, w, h in platform_positions:
-            plat = Platform(x, y, w, h)
-            self.platforms.add(plat)
-
-        # Boss
-        self.boss = Boss(WIDTH - 200, GROUND_Y)
-        self.enemies.add(self.boss)
 
     def handle_event(self, event):
         """Gere les evenements"""
         if event.type == pygame.KEYDOWN:
-            # Pause (pas pendant l'ultime)
-            if event.key in CONTROLS["pause"] and not self.ultimate_active:
+            # Menu de victoire apres mort du boss
+            if self.victory_menu_active:
+                if event.key == pygame.K_UP:
+                    self.victory_menu_selected = (self.victory_menu_selected - 1) % len(self.victory_menu_options)
+                elif event.key == pygame.K_DOWN:
+                    self.victory_menu_selected = (self.victory_menu_selected + 1) % len(self.victory_menu_options)
+                elif event.key in CONTROLS["confirm"]:
+                    if self.victory_menu_selected == 0:  # Continuer -> map des niveaux
+                        self._complete_stage()
+                    else:  # Retour -> lobby (menu principal)
+                        self.game.change_scene(STATE_MENU)
+                return
+
+            # Pause (pas pendant l'ultime ou la mort du boss)
+            if event.key in CONTROLS["pause"] and not self.ultimate_active and not self.boss_death_active:
                 self.game.change_scene(STATE_PAUSE)
                 return
 
@@ -1088,7 +1052,7 @@ class GameplayScene(Scene):
             if event.key in CONTROLS["debug_hitbox"]:
                 self.debug_hitboxes = not self.debug_hitboxes
             if event.key in CONTROLS["debug_skip"]:
-                self._complete_level()
+                self._complete_stage()
             if event.key in CONTROLS["debug_invincible"]:
                 self.player.debug_invincible = not self.player.debug_invincible
 
@@ -1120,6 +1084,8 @@ class GameplayScene(Scene):
             return
         if self.ultimate_active:
             return  # Pas d'attaque normale pendant l'ultime
+        if self.player.is_crouching:
+            return  # Pas d'attaque quand accroupi
 
         # Creer le projectile (degats fixes)
         direction = 1 if self.player.facing_right else -1
@@ -1187,7 +1153,7 @@ class GameplayScene(Scene):
 
             self.ultimate_results.append(result)
             self.timing_feedback = result
-            self.timing_feedback_timer = 300
+            self.timing_feedback_timer = 800  # Plus long pour etre lisible
 
             # Supprimer la note
             self.ultimate_notes.remove(closest_note)
@@ -1231,7 +1197,7 @@ class GameplayScene(Scene):
 
         # Afficher les degats totaux
         self.timing_feedback = f"DAMAGE: {self.ultimate_total_damage}!"
-        self.timing_feedback_timer = 1000
+        self.timing_feedback_timer = 2000  # Plus long pour etre lisible
 
     def update(self, dt):
         """Met a jour le gameplay"""
@@ -1266,7 +1232,7 @@ class GameplayScene(Scene):
         self.player.update(dt, self.platforms)
 
         for proj in self.player_projectiles:
-            proj.update(dt)
+            proj.update(dt, self.camera_x)
 
         for proj in self.boss_projectiles:
             proj.update(dt)
@@ -1275,11 +1241,13 @@ class GameplayScene(Scene):
             pickup.update(dt)
 
         # Mise a jour des ennemis
+        # Liste des ennemis normaux pour eviter les collisions entre eux
+        normal_enemies = [e for e in self.enemies if not isinstance(e, Boss)]
         for enemy in self.enemies:
             if isinstance(enemy, Boss):
                 enemy.update(dt, self.player.rect, self.boss_projectiles)
             else:
-                enemy.update(dt, self.player.rect, self.platforms)
+                enemy.update(dt, self.player.rect, self.platforms, normal_enemies)
 
         # Empecher les ennemis de se chevaucher
         self._resolve_enemy_collisions()
@@ -1296,6 +1264,9 @@ class GameplayScene(Scene):
         # Feedback timer
         if self.timing_feedback_timer > 0:
             self.timing_feedback_timer -= dt_ms
+
+        # Mise a jour des nombres de degats flottants
+        self._update_damage_numbers(dt_ms)
 
         # Verifier fin de niveau
         self._check_level_end()
@@ -1331,7 +1302,7 @@ class GameplayScene(Scene):
                 notes_to_remove.append(note)
                 self.ultimate_results.append("MISS")
                 self.timing_feedback = "MISS"
-                self.timing_feedback_timer = 300
+                self.timing_feedback_timer = 800  # Plus long pour etre lisible
 
         for note in notes_to_remove:
             self.ultimate_notes.remove(note)
@@ -1356,21 +1327,49 @@ class GameplayScene(Scene):
 
     def _resolve_enemy_collisions(self):
         """Empeche les ennemis de se chevaucher"""
-        enemies_list = [e for e in self.enemies if not isinstance(e, Boss)]
+        # Filtrer les ennemis vivants seulement (pas le boss, pas les morts)
+        enemies_list = [e for e in self.enemies if not isinstance(e, Boss) and not e.is_dead]
+
+        # Distance minimale entre ennemis pour eviter l'oscillation
+        min_separation = 10
 
         for i, enemy1 in enumerate(enemies_list):
             for enemy2 in enemies_list[i + 1:]:
-                if enemy1.rect.colliderect(enemy2.rect):
-                    # Calculer le chevauchement
-                    overlap_x = min(enemy1.rect.right, enemy2.rect.right) - max(enemy1.rect.left, enemy2.rect.left)
+                # Calculer la distance entre les centres
+                dist_x = abs(enemy1.rect.centerx - enemy2.rect.centerx)
+                min_dist = (enemy1.rect.width + enemy2.rect.width) // 2 + min_separation
+
+                # Si trop proches (meme sans chevauchement strict)
+                if dist_x < min_dist and enemy1.rect.colliderect(enemy2.rect.inflate(min_separation * 2, 0)):
+                    # Calculer combien il faut pousser
+                    push_amount = (min_dist - dist_x) // 2 + 1
 
                     # Pousser les ennemis dans des directions opposees
                     if enemy1.rect.centerx < enemy2.rect.centerx:
-                        enemy1.rect.x -= overlap_x // 2 + 1
-                        enemy2.rect.x += overlap_x // 2 + 1
+                        enemy1.rect.x -= push_amount
+                        enemy2.rect.x += push_amount
                     else:
-                        enemy1.rect.x += overlap_x // 2 + 1
-                        enemy2.rect.x -= overlap_x // 2 + 1
+                        enemy1.rect.x += push_amount
+                        enemy2.rect.x -= push_amount
+
+    def _add_damage_number(self, x, y, damage, color=YELLOW):
+        """Ajoute un nombre de degats flottant"""
+        self.damage_numbers.append({
+            "x": x,
+            "y": y,
+            "damage": damage,
+            "timer": 1500,  # 1.5 secondes d'affichage
+            "color": color,
+            "offset_y": 0,
+        })
+
+    def _update_damage_numbers(self, dt_ms):
+        """Met a jour les nombres de degats flottants"""
+        for dmg in self.damage_numbers[:]:
+            dmg["timer"] -= dt_ms
+            dmg["offset_y"] -= 1.5  # Monte vers le haut
+            if dmg["timer"] <= 0:
+                self.damage_numbers.remove(dmg)
 
     def _check_collisions(self):
         """Verifie toutes les collisions"""
@@ -1381,6 +1380,14 @@ class GameplayScene(Scene):
                     proj.kill()
                     is_dead = enemy.take_damage(proj.damage)
                     self.player.add_ultimate_charge(ULTIMATE_CHARGE_PER_HIT)
+
+                    # Afficher les degats infliges
+                    self._add_damage_number(
+                        enemy.rect.centerx,
+                        enemy.rect.top,
+                        proj.damage,
+                        YELLOW
+                    )
 
                     if is_dead:
                         self.game.game_data["score"] += enemy.score_value
@@ -1399,12 +1406,39 @@ class GameplayScene(Scene):
 
         # Ennemis -> Joueur (contact)
         for enemy in self.enemies:
+            if hasattr(enemy, 'is_dead') and enemy.is_dead:
+                continue  # Ignorer les ennemis morts
             if self.player.rect.colliderect(enemy.rect):
-                if self.player.take_damage(enemy.damage):
-                    self.game.game_data["lives"] = self.player.health
-                    # Repousser le joueur
-                    knockback = -5 if self.player.rect.centerx < enemy.rect.centerx else 5
-                    self.player.rect.x += knockback * 10
+                # Verifier si le joueur saute sur la tete de l'ennemi (pas le boss)
+                if (not isinstance(enemy, Boss) and
+                    self.player.velocity_y > 0 and
+                    self.player.rect.bottom <= enemy.rect.top + 30):
+                    # Tuer l'ennemi en sautant dessus
+                    enemy.is_dead = True
+                    enemy.state = "dead"
+                    self.game.game_data["score"] += enemy.score_value
+                    # Afficher "STOMP!" ou les degats
+                    self._add_damage_number(
+                        enemy.rect.centerx,
+                        enemy.rect.top,
+                        enemy.max_health,
+                        ORANGE
+                    )
+                    # Faire rebondir le joueur
+                    self.player.velocity_y = -10
+                    self.player.rect.bottom = enemy.rect.top
+                else:
+                    # Collision normale - le joueur prend des degats
+                    if self.player.take_damage(enemy.damage):
+                        self.game.game_data["lives"] = self.player.health
+                        # Decaler le joueur de quelques pixels pour eviter la superposition
+                        # Direction: vers le dos du joueur (oppose a la direction qu'il regarde)
+                        if self.player.rect.centerx < enemy.rect.centerx:
+                            # Ennemi a droite, decaler le joueur a gauche
+                            self.player.rect.x -= 5
+                        else:
+                            # Ennemi a gauche, decaler le joueur a droite
+                            self.player.rect.x += 5
 
         # Joueur -> Pickups
         for pickup in self.pickups:
@@ -1423,6 +1457,10 @@ class GameplayScene(Scene):
         elif pickup.pickup_type == "ampli":
             # Boost temporaire (a implementer si besoin)
             self.game.game_data["score"] += PICKUP_NOTE_SCORE * 2
+        elif pickup.pickup_type == "health":
+            # Soigne le joueur d'un coeur
+            self.player.heal(1)
+            self.game.game_data["lives"] = self.player.health
 
     def _update_camera(self):
         """Met a jour la position de la camera"""
@@ -1461,27 +1499,42 @@ class GameplayScene(Scene):
             self.boss_intro_channel.stop()
 
     def _check_level_end(self):
-        """Verifie si le niveau est termine"""
+        """Verifie si le stage est termine"""
         if self.celebration_active:
             return  # Deja en celebration
 
-        if self.current_level == 3:
-            # Niveau boss - victoire si boss mort
+        # Verifier si c'est un stage de boss
+        is_boss_stage = self.stage_data and self.stage_data.get('is_boss_stage', False)
+
+        if is_boss_stage:
+            # Stage boss - victoire si boss mort
             if self.boss is None or self.boss not in self.enemies:
                 self._start_celebration()
         else:
-            # Autres niveaux - atteindre la fin
+            # Stages normaux - atteindre la fin
             if self.player.rect.right >= self.level_width - 50:
-                self._complete_level()
+                self._complete_stage()
 
     def _start_celebration(self):
-        """Demarre l'animation de celebration apres avoir battu le boss"""
+        """Demarre l'animation de mort du boss avec zoom"""
         self.celebration_active = True
         self.celebration_timer = 0
-        self.celebration_particles = []
-        # Generer des particules initiales
-        for _ in range(50):
-            self._spawn_celebration_particle()
+
+        # Demarrer l'animation de mort du boss
+        self.boss_death_active = True
+        self.boss_death_timer = 0
+        self.boss_death_alpha = 255
+        self.boss_death_zoom = 1.0
+
+        # Position du boss pour l'animation (centre de l'ecran)
+        if self.boss:
+            self.boss_death_pos = (self.boss.rect.centerx, self.boss.rect.centery)
+            # Camera cible pour centrer sur le boss
+            self.target_camera_x = self.boss.rect.centerx - WIDTH // 2
+            self.target_camera_x = max(0, min(self.target_camera_x, self.level_width - WIDTH))
+        else:
+            self.boss_death_pos = (WIDTH // 2 + self.camera_x, HEIGHT // 2)
+            self.target_camera_x = self.camera_x
 
         # Arreter la musique du boss
         self._stop_all_music()
@@ -1547,59 +1600,71 @@ class GameplayScene(Scene):
             self.game.game_data["current_level"] = 3
             self.enter()
 
-    def _spawn_celebration_particle(self):
-        """Cree une particule de celebration (confetti)"""
-        particle = {
-            "x": random.randint(0, WIDTH),
-            "y": random.randint(-50, 0),
-            "vel_x": random.uniform(-2, 2),
-            "vel_y": random.uniform(2, 5),
-            "color": random.choice([YELLOW, PURPLE, GREEN, ORANGE, WHITE]),
-            "size": random.randint(5, 12),
-            "rotation": random.uniform(0, 360),
-            "rot_speed": random.uniform(-5, 5),
-        }
-        self.celebration_particles.append(particle)
-
     def _update_celebration(self, dt_ms):
-        """Met a jour l'animation de celebration"""
+        """Met a jour l'animation de mort du boss"""
         self.celebration_timer += dt_ms
+        self.boss_death_timer += dt_ms
 
-        # Ajouter de nouvelles particules
-        if len(self.celebration_particles) < 100 and random.random() < 0.3:
-            self._spawn_celebration_particle()
+        # Phase 1: Zoom smooth sur le boss (0-2000ms)
+        if self.boss_death_timer < 2000:
+            # Zoom progressif de 1.0 a 1.5
+            progress = self.boss_death_timer / 2000
+            self.boss_death_zoom = 1.0 + progress * 0.5
 
-        # Mettre a jour les particules
-        for particle in self.celebration_particles[:]:
-            particle["x"] += particle["vel_x"]
-            particle["y"] += particle["vel_y"]
-            particle["rotation"] += particle["rot_speed"]
+            # Deplacement smooth de la camera vers le boss
+            camera_diff = self.target_camera_x - self.camera_x
+            self.camera_x += camera_diff * 0.05
 
-            # Supprimer si hors ecran
-            if particle["y"] > HEIGHT + 50:
-                self.celebration_particles.remove(particle)
+        # Phase 2: Fade out du boss (2000-4000ms)
+        elif self.boss_death_timer < 4000:
+            progress = (self.boss_death_timer - 2000) / 2000
+            self.boss_death_alpha = int(255 * (1 - progress))
+            self.boss_death_zoom = 1.5
 
-        # Apres 7 secondes, passer a l'ecran de victoire
-        if self.celebration_timer >= 7000:
-            self._complete_level()
+        # Phase 3: Dezoom et affichage du menu (4000-5000ms)
+        elif self.boss_death_timer < 5000:
+            progress = (self.boss_death_timer - 4000) / 1000
+            self.boss_death_zoom = 1.5 - progress * 0.5
+            self.boss_death_alpha = 0
 
-    def _complete_level(self):
-        """Complete le niveau actuel"""
-        # Sauvegarder l'etat du joueur avant de changer de niveau
+        # Phase 4: Afficher le menu de victoire
+        else:
+            self.boss_death_active = False
+            self.victory_menu_active = True
+
+    def _complete_stage(self):
+        """Complete le stage actuel et passe au suivant ou au niveau suivant"""
+        # Sauvegarder l'etat du joueur
         self.game.game_data["lives"] = self.player.health
         self.game.game_data["ultimate_charge"] = self.player.ultimate_charge
 
-        if self.current_level < 3:
+        # Obtenir le nombre total de stages dans ce niveau
+        total_stages = len(self.level_data.get('stages', [])) if self.level_data else 3
+
+        if self.current_stage_id < total_stages:
             if self.current_level == 2:
                 # Transition vers le boss avec image intro
                 self._start_boss_intro()
             else:
-                # Passer au niveau suivant normalement
-                self.game.game_data["current_level"] += 1
-                self.enter()
+                # Passer au stage suivant du meme niveau
+            self.current_stage_id += 1 normalement
+                self.game.game_data["current_stage"] = self.current_stage_id
+                self.enter(level_id=self.current_level_id, stage_id=self.current_stage_id)
         else:
-            # Victoire!
-            self.game.change_scene(STATE_VICTORY)
+            # Niveau complete! Marquer comme complete et calculer les etoiles
+            if self.current_level_id not in self.game.game_data["completed_levels"]:
+                self.game.game_data["completed_levels"].append(self.current_level_id)
+
+            # Calculer les etoiles basees sur le score
+            score = self.game.game_data.get("score", 0)
+            stars = self.loader.get_stars_count(self.current_level_id, score)
+            self.game.game_data["level_stars"][self.current_level_id] = max(
+                stars,
+                self.game.game_data["level_stars"].get(self.current_level_id, 0)
+            )
+
+            # Aller directement a la map des niveaux
+            self.game.change_scene(STATE_LEVEL_SELECT)
 
     def draw(self, screen):
         """Dessine le gameplay"""
@@ -1649,6 +1714,9 @@ class GameplayScene(Scene):
         else:
             screen.blit(self.player.image, player_draw_rect)
 
+        # Nombres de degats flottants
+        self._draw_damage_numbers(screen)
+
         # Debug hitboxes
         if self.debug_hitboxes:
             self._draw_debug_hitboxes(screen)
@@ -1687,21 +1755,30 @@ class GameplayScene(Scene):
             screen.blit(text, text_rect)
 
     def _draw_celebration(self, screen):
-        """Dessine l'animation de celebration"""
-        # Fond semi-transparent dore
+        """Dessine l'animation de mort du boss et le menu de victoire"""
+        # Fond semi-transparent sombre
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((255, 215, 0, 50))  # Or transparent
+        overlay.fill((0, 0, 0, 100))
         screen.blit(overlay, (0, 0))
 
-        # Dessiner les particules (confettis)
-        for particle in self.celebration_particles:
-            # Dessiner un rectangle tourne (confetti)
-            size = particle["size"]
-            color = particle["color"]
-            x, y = int(particle["x"]), int(particle["y"])
+        # Dessiner l'image de mort du boss avec zoom et fade
+        if self.boss_death_active and self.boss_death_image and self.boss_death_alpha > 0:
+            # Position relative a la camera
+            draw_x = self.boss_death_pos[0] - self.camera_x
+            draw_y = self.boss_death_pos[1]
 
-            # Simple rectangle pour le confetti
-            pygame.draw.rect(screen, color, (x - size//2, y - size//2, size, size))
+            # Appliquer le zoom
+            original_size = self.boss_death_image.get_size()
+            new_width = int(original_size[0] * self.boss_death_zoom)
+            new_height = int(original_size[1] * self.boss_death_zoom)
+            scaled_img = pygame.transform.scale(self.boss_death_image, (new_width, new_height))
+
+            # Appliquer l'alpha (transparence)
+            scaled_img.set_alpha(self.boss_death_alpha)
+
+            # Centrer l'image
+            img_rect = scaled_img.get_rect(center=(draw_x, draw_y))
+            screen.blit(scaled_img, img_rect)
 
         # Texte "BOSS VAINCU!" avec effet de pulsation
         pulse = 1.0 + math.sin(self.celebration_timer / 200) * 0.15
@@ -1713,28 +1790,88 @@ class GameplayScene(Scene):
 
         # Ombre du texte
         shadow_text = font.render("BOSS VAINCU!", True, (50, 50, 50))
-        shadow_rect = shadow_text.get_rect(center=(WIDTH // 2 + 4, HEIGHT // 3 + 4))
+        shadow_rect = shadow_text.get_rect(center=(WIDTH // 2 + 4, HEIGHT // 4 + 4))
         screen.blit(shadow_text, shadow_rect)
 
         # Texte principal
         text = font.render("BOSS VAINCU!", True, YELLOW)
-        text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+        text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 4))
         screen.blit(text, text_rect)
 
-        # Sous-texte
+        # Message "Vous avez gagne!"
         try:
-            sub_font = pygame.font.Font(str(FONT_ROAD_RAGE), 28)
+            sub_font = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
         except (pygame.error, FileNotFoundError):
-            sub_font = pygame.font.Font(None, 28)
-        sub_text = sub_font.render("Tu es une vraie Rockstar!", True, WHITE)
-        sub_rect = sub_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 60))
-        screen.blit(sub_text, sub_rect)
+            sub_font = pygame.font.Font(None, 36)
 
-        # Compte a rebours avant victoire
-        remaining = max(0, 7000 - self.celebration_timer) // 1000 + 1
-        countdown_text = sub_font.render(f"Victoire dans {remaining}...", True, GRAY)
-        countdown_rect = countdown_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-        screen.blit(countdown_text, countdown_rect)
+        win_text = sub_font.render("Vous avez gagne!", True, WHITE)
+        win_rect = win_text.get_rect(center=(WIDTH // 2, HEIGHT // 4 + 70))
+        screen.blit(win_text, win_rect)
+
+        # Menu de victoire (apres le fade du boss)
+        if self.victory_menu_active:
+            self._draw_victory_menu(screen)
+
+    def _draw_victory_menu(self, screen):
+        """Dessine le menu continuer/quitter apres la mort du boss"""
+        try:
+            menu_font = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
+            small_font = pygame.font.Font(str(FONT_ROAD_RAGE), 24)
+        except (pygame.error, FileNotFoundError):
+            menu_font = pygame.font.Font(None, 36)
+            small_font = pygame.font.Font(None, 24)
+
+        # Box du menu
+        box_width = 300
+        box_height = 150
+        box_x = (WIDTH - box_width) // 2
+        box_y = HEIGHT // 2 + 50
+
+        # Fond de la boite
+        box_surf = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        box_surf.fill((30, 20, 40, 220))
+        screen.blit(box_surf, (box_x, box_y))
+
+        # Bordure animee
+        border_color = (
+            int(200 + math.sin(self.animation_time * 4) * 55),
+            int(100 + math.sin(self.animation_time * 3) * 50),
+            0
+        )
+        pygame.draw.rect(screen, border_color, (box_x, box_y, box_width, box_height), 3, border_radius=10)
+
+        # Options
+        for i, option in enumerate(self.victory_menu_options):
+            y = box_y + 40 + i * 55
+            is_selected = i == self.victory_menu_selected
+
+            if is_selected:
+                sel_surf = pygame.Surface((box_width - 40, 45), pygame.SRCALPHA)
+                sel_surf.fill((255, 200, 0, 80))
+                screen.blit(sel_surf, (box_x + 20, y - 8))
+
+                # Fleche animee
+                arrow_offset = math.sin(self.animation_time * 8) * 5
+                arrow_size = 12
+                points = [
+                    (box_x + 30 + arrow_offset, y + 14 - arrow_size // 2),
+                    (box_x + 30 + arrow_offset, y + 14 + arrow_size // 2),
+                    (box_x + 30 + arrow_offset + arrow_size, y + 14)
+                ]
+                pygame.draw.polygon(screen, YELLOW, points)
+
+                color = YELLOW
+            else:
+                color = WHITE
+
+            text = menu_font.render(option, True, color)
+            rect = text.get_rect(center=(WIDTH // 2, y + 14))
+            screen.blit(text, rect)
+
+        # Instructions
+        instructions = small_font.render("Fleches + Entree pour choisir", True, GRAY)
+        inst_rect = instructions.get_rect(center=(WIDTH // 2, box_y + box_height + 20))
+        screen.blit(instructions, inst_rect)
 
     def _draw_placeholder_bg(self, screen):
         """Dessine un fond placeholder"""
@@ -1744,7 +1881,7 @@ class GameplayScene(Scene):
             2: ((50, 40, 30), (80, 60, 40)),   # Scene - marron/orange
             3: ((60, 20, 30), (90, 30, 40)),   # Boss - rouge sombre
         }
-        c1, c2 = colors.get(self.current_level, ((30, 30, 40), (50, 50, 60)))
+        c1, c2 = colors.get(self.current_level_id, ((30, 30, 40), (50, 50, 60)))
 
         for y in range(HEIGHT):
             ratio = y / HEIGHT
@@ -1772,6 +1909,45 @@ class GameplayScene(Scene):
         for proj in self.boss_projectiles:
             proj_rect = proj.rect.move(-self.camera_x, 0)
             pygame.draw.rect(screen, ORANGE, proj_rect, 2)
+
+    def _draw_damage_numbers(self, screen):
+        """Dessine les nombres de degats flottants"""
+        for dmg in self.damage_numbers:
+            # Position avec camera
+            draw_x = dmg["x"] - self.camera_x
+            draw_y = dmg["y"] + dmg["offset_y"]
+
+            # Alpha basé sur le timer restant (fade out)
+            alpha = min(255, int(dmg["timer"] / 1500 * 255))
+
+            # Taille selon les degats
+            if dmg["damage"] >= 5:
+                font_size = 36
+            elif dmg["damage"] >= 3:
+                font_size = 30
+            else:
+                font_size = 24
+
+            try:
+                dmg_font = pygame.font.Font(str(FONT_METAL_MANIA), font_size)
+            except (pygame.error, FileNotFoundError):
+                dmg_font = pygame.font.Font(None, font_size)
+
+            # Texte des degats
+            text = f"-{dmg['damage']}"
+            color = dmg["color"]
+
+            # Ombre
+            shadow_surf = dmg_font.render(text, True, (0, 0, 0))
+            shadow_surf.set_alpha(alpha)
+            shadow_rect = shadow_surf.get_rect(center=(draw_x + 2, draw_y + 2))
+            screen.blit(shadow_surf, shadow_rect)
+
+            # Texte principal
+            text_surf = dmg_font.render(text, True, color)
+            text_surf.set_alpha(alpha)
+            text_rect = text_surf.get_rect(center=(draw_x, draw_y))
+            screen.blit(text_surf, text_rect)
 
     def _draw_hud(self, screen):
         """Dessine le HUD"""
@@ -1803,10 +1979,12 @@ class GameplayScene(Scene):
             combo_text = self.font_big.render(f"x{self.combo}", True, YELLOW)
             screen.blit(combo_text, (WIDTH - 100, HUD_MARGIN + 30))
 
-        # Niveau
-        level_name = LEVEL_NAMES[self.current_level - 1]
-        level_text = self.font.render(f"Niveau {self.current_level}: {level_name}", True, WHITE)
-        screen.blit(level_text, (WIDTH // 2 - level_text.get_width() // 2, HUD_MARGIN))
+        # Niveau et stage
+        if self.level_data and self.stage_data:
+            level_name = self.level_data.get('name', 'Unknown')
+            stage_name = self.stage_data.get('name', f'Stage {self.current_stage_id}')
+            level_text = self.font.render(f"{level_name} - {stage_name}", True, WHITE)
+            screen.blit(level_text, (WIDTH // 2 - level_text.get_width() // 2, HUD_MARGIN))
 
         # Jauge ultime
         ult_bar_width = 150
@@ -1860,7 +2038,7 @@ class GameplayScene(Scene):
             ult_fill = int((self.player.ultimate_charge / ULTIMATE_CHARGE_MAX) * ult_bar_width)
             pygame.draw.rect(screen, BLUE, (ult_x, ult_y, ult_fill, ult_bar_height))
             pygame.draw.rect(screen, WHITE, (ult_x, ult_y, ult_bar_width, ult_bar_height), 2)
-            ult_label = self.font.render("ULTIME [K]", True, WHITE)
+            ult_label = self.font.render("ULTIME 'K'", True, WHITE)
 
         screen.blit(ult_label, (ult_x, ult_y + 18))
 

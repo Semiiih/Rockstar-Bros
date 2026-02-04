@@ -1,19 +1,21 @@
 """
 Rockstar Bros - Classe Player
-Gestion du joueur, animation, collision et combat
+Gere le joueur: mouvements, animations, combat
 """
 
 import pygame
 from settings import (
-    PLAYER_WIDTH, PLAYER_HEIGHT, PURPLE, ORANGE,
-    PLAYER_SPEED, PLAYER_JUMP_FORCE, PLAYER_MAX_HEALTH,
-    PLAYER_INVINCIBILITY_TIME, CONTROLS,
+    PURPLE, ORANGE,
     GRAVITY, MAX_FALL_SPEED,
+    PLAYER_SPEED, PLAYER_JUMP_FORCE, PLAYER_MAX_HEALTH,
+    PLAYER_INVINCIBILITY_TIME, PLAYER_WIDTH, PLAYER_HEIGHT,
     PROJECTILE_COOLDOWN, ULTIMATE_CHARGE_MAX,
     IMG_PLAYER_DIR,
     IMG_PLAYER1_IDLE, IMG_PLAYER1_RUN1, IMG_PLAYER1_RUN2, IMG_PLAYER1_JUMP, IMG_PLAYER1_ATTACK,
     IMG_PLAYER2_IDLE, IMG_PLAYER2_RUN1, IMG_PLAYER2_RUN2, IMG_PLAYER2_JUMP, IMG_PLAYER2_ATTACK,
     IMG_PLAYER1_ULTIMATE, IMG_PLAYER2_ULTIMATE,
+    IMG_PLAYER1_CROUCH1, IMG_PLAYER1_CROUCH2, IMG_PLAYER2_CROUCH1, IMG_PLAYER2_CROUCH2,
+    CONTROLS,
 )
 
 
@@ -28,8 +30,11 @@ class Player(pygame.sprite.Sprite):
         self.images = {}
         self._load_images()
 
-        # Sprite de base
-        self.image = self._get_placeholder((PLAYER_WIDTH, PLAYER_HEIGHT), PURPLE)
+        # Sprite de base - utiliser l'image idle si disponible, sinon placeholder
+        if self.images.get("idle"):
+            self.image = self.images["idle"]
+        else:
+            self.image = self._get_placeholder((PLAYER_WIDTH, PLAYER_HEIGHT), PURPLE)
         self.rect = self.image.get_rect(midbottom=(x, y))
 
         # Physique
@@ -48,8 +53,14 @@ class Player(pygame.sprite.Sprite):
         # Animation
         self.anim_frame = 0
         self.anim_timer = 0
-        self.state = "idle"  # idle, run, jump, attack, ultimate
+        self.state = "idle"  # idle, run, jump, attack, ultimate, crouch
         self.attack_anim_timer = 0  # Timer pour garder l'animation d'attaque
+
+        # Accroupissement
+        self.is_crouching = False
+        self.wants_to_stand = False
+        self.normal_height = PLAYER_HEIGHT
+        self.crouch_height = PLAYER_HEIGHT // 2  # Moitie de la hauteur normale
 
         # Debug
         self.debug_invincible = False
@@ -64,6 +75,8 @@ class Player(pygame.sprite.Sprite):
                 "jump": IMG_PLAYER1_JUMP,
                 "attack": IMG_PLAYER1_ATTACK,
                 "ultimate": IMG_PLAYER1_ULTIMATE,
+                "crouch1": IMG_PLAYER1_CROUCH1,
+                "crouch2": IMG_PLAYER1_CROUCH2,
             }
         else:
             img_files = {
@@ -73,13 +86,26 @@ class Player(pygame.sprite.Sprite):
                 "jump": IMG_PLAYER2_JUMP,
                 "attack": IMG_PLAYER2_ATTACK,
                 "ultimate": IMG_PLAYER2_ULTIMATE,
+                "crouch1": IMG_PLAYER2_CROUCH1,
+                "crouch2": IMG_PLAYER2_CROUCH2,
             }
 
         for key, filename in img_files.items():
             try:
                 path = IMG_PLAYER_DIR / filename
                 img = pygame.image.load(str(path)).convert_alpha()
-                self.images[key] = pygame.transform.scale(img, (PLAYER_WIDTH, PLAYER_HEIGHT))
+                # Pour l'attaque, garder les proportions (hauteur fixe, largeur proportionnelle)
+                if key == "attack":
+                    original_width, original_height = img.get_size()
+                    ratio = PLAYER_HEIGHT / original_height
+                    new_width = int(original_width * ratio)
+                    img = pygame.transform.scale(img, (new_width, PLAYER_HEIGHT))
+                else:
+                    img = pygame.transform.scale(img, (PLAYER_WIDTH, PLAYER_HEIGHT))
+                # Flipper les images crouch car elles sont orientees dans l'autre sens
+                if key in ("crouch1", "crouch2"):
+                    img = pygame.transform.flip(img, True, False)
+                self.images[key] = img
             except (pygame.error, FileNotFoundError):
                 self.images[key] = None
 
@@ -97,6 +123,13 @@ class Player(pygame.sprite.Sprite):
                 # Fallback: placeholder special pour l'ultime
                 color = (255, 200, 0) if self.character_id == 1 else (255, 150, 50)
                 img = self._get_placeholder((PLAYER_WIDTH, PLAYER_HEIGHT), color)
+        elif self.state == "crouch":
+            # Animation crouch avec 2 frames
+            frame_key = "crouch1" if self.anim_frame == 0 else "crouch2"
+            img = self.images.get(frame_key)
+            if img:
+                # Redimensionner l'image pour la hauteur accroupie
+                img = pygame.transform.scale(img, (PLAYER_WIDTH, self.crouch_height))
         elif self.state == "jump":
             img = self.images.get("jump")
         elif self.state == "run":
@@ -109,7 +142,8 @@ class Player(pygame.sprite.Sprite):
 
         if img is None:
             color = PURPLE if self.character_id == 1 else ORANGE
-            img = self._get_placeholder((PLAYER_WIDTH, PLAYER_HEIGHT), color)
+            height = self.crouch_height if self.is_crouching else PLAYER_HEIGHT
+            img = self._get_placeholder((PLAYER_WIDTH, height), color)
 
         # Flip si regarde a gauche
         if not self.facing_right:
@@ -121,20 +155,37 @@ class Player(pygame.sprite.Sprite):
         """Gere les inputs du joueur"""
         self.velocity_x = 0
 
-        # Deplacement horizontal
+        # Accroupissement (seulement au sol)
+        crouch = any(keys[k] for k in CONTROLS["crouch"])
+        was_crouching = self.is_crouching
+
+        if crouch and self.on_ground:
+            self.is_crouching = True
+            # Reduire la hitbox si on vient de s'accroupir
+            if not was_crouching:
+                bottom = self.rect.bottom
+                self.rect.height = self.crouch_height
+                self.rect.bottom = bottom
+        else:
+            # Marquer qu'on veut se relever (sera verifie dans update avec les obstacles)
+            self.wants_to_stand = not crouch and was_crouching
+
+        # Deplacement horizontal (plus lent si accroupi)
         move_left = any(keys[k] for k in CONTROLS["left"])
         move_right = any(keys[k] for k in CONTROLS["right"])
 
+        speed = PLAYER_SPEED // 2 if self.is_crouching else PLAYER_SPEED
+
         if move_left:
-            self.velocity_x = -PLAYER_SPEED
+            self.velocity_x = -speed
             self.facing_right = False
         if move_right:
-            self.velocity_x = PLAYER_SPEED
+            self.velocity_x = speed
             self.facing_right = True
 
-        # Saut
+        # Saut (pas possible si accroupi)
         jump = any(keys[k] for k in CONTROLS["jump"])
-        if jump and self.on_ground:
+        if jump and self.on_ground and not self.is_crouching:
             self.velocity_y = -PLAYER_JUMP_FORCE
             self.on_ground = False
 
@@ -147,12 +198,43 @@ class Player(pygame.sprite.Sprite):
         if self.velocity_y > MAX_FALL_SPEED:
             self.velocity_y = MAX_FALL_SPEED
 
-        # Mouvement
-        self.rect.x += self.velocity_x
-        self._check_horizontal_collisions(platforms)
+        # Mouvement horizontal avec collision pixel-perfect
+        self._move_horizontal(self.velocity_x, platforms)
 
-        self.rect.y += self.velocity_y
-        self._check_vertical_collisions(platforms)
+        # Mouvement vertical avec collision pixel-perfect
+        self._move_vertical(self.velocity_y, platforms)
+
+        # Si le joueur tombe pendant qu'il est accroupi, restaurer la taille
+        if not self.on_ground and self.is_crouching:
+            self.is_crouching = False
+            bottom = self.rect.bottom
+            self.rect.height = self.normal_height
+            self.rect.bottom = bottom
+
+        # Verifier si le joueur peut se relever (pas d'obstacle au-dessus)
+        if self.is_crouching and self.wants_to_stand:
+            # Creer un rect temporaire pour tester la hauteur normale
+            test_rect = pygame.Rect(
+                self.rect.x,
+                self.rect.bottom - self.normal_height,
+                self.rect.width,
+                self.normal_height
+            )
+            # Verifier collision avec les plateformes
+            can_stand = True
+            for platform in platforms:
+                if test_rect.colliderect(platform.rect):
+                    can_stand = False
+                    break
+
+            if can_stand:
+                # Se relever
+                bottom = self.rect.bottom
+                self.rect.height = self.normal_height
+                self.rect.bottom = bottom
+                self.is_crouching = False
+
+        self.wants_to_stand = False
 
         # Cooldowns
         if self.attack_cooldown > 0:
@@ -169,29 +251,64 @@ class Player(pygame.sprite.Sprite):
         # Mise a jour de l'image
         self.image = self._get_current_image()
 
-    def _check_horizontal_collisions(self, platforms):
-        """Verifie les collisions horizontales"""
-        for platform in platforms:
-            if self.rect.colliderect(platform.rect):
-                if self.velocity_x > 0:
-                    self.rect.right = platform.rect.left
-                elif self.velocity_x < 0:
-                    self.rect.left = platform.rect.right
+    def _move_horizontal(self, dx, platforms):
+        """Deplace le joueur horizontalement pixel par pixel pour collision precise"""
+        if dx == 0:
+            return
 
-    def _check_vertical_collisions(self, platforms):
-        """Verifie les collisions verticales"""
+        sign = 1 if dx > 0 else -1
+        remaining = abs(dx)
+
+        while remaining > 0:
+            step = min(1, remaining)
+            self.rect.x += sign * step
+            remaining -= step
+
+            # Verifier collision
+            for platform in platforms:
+                if self.rect.colliderect(platform.rect):
+                    # Collision detectee, reculer et ajuster
+                    if sign > 0:
+                        self.rect.right = platform.rect.left
+                    else:
+                        self.rect.left = platform.rect.right
+                    return
+
+    def _move_vertical(self, dy, platforms):
+        """Deplace le joueur verticalement pixel par pixel pour collision precise"""
         self.on_ground = False
 
-        for platform in platforms:
-            if self.rect.colliderect(platform.rect):
-                if self.velocity_y > 0:
+        if dy == 0:
+            # Verifier quand meme si on est sur une plateforme
+            self.rect.y += 1
+            for platform in platforms:
+                if self.rect.colliderect(platform.rect):
                     self.rect.bottom = platform.rect.top
-                    self.velocity_y = 0
                     self.on_ground = True
-                elif self.velocity_y < 0:
-                    self.rect.top = platform.rect.bottom
-                    self.velocity_y = 0
-        # Plus de sol invisible - le joueur peut tomber dans le vide!
+                    break
+            if not self.on_ground:
+                self.rect.y -= 1
+            return
+
+        sign = 1 if dy > 0 else -1
+        remaining = abs(dy)
+
+        while remaining > 0:
+            step = min(1, remaining)
+            self.rect.y += sign * step
+            remaining -= step
+
+            # Verifier collision
+            for platform in platforms:
+                if self.rect.colliderect(platform.rect):
+                    if sign > 0:  # Tombe vers le bas
+                        self.rect.bottom = platform.rect.top
+                        self.velocity_y = 0
+                        self.on_ground = True
+                    else:  # Monte vers le haut
+                        self.rect.top = platform.rect.bottom
+                        self.velocity_y = 0
+                    return
 
     def _update_animation(self, dt_ms):
         """Met a jour l'animation"""
@@ -207,15 +324,19 @@ class Player(pygame.sprite.Sprite):
             return  # Garder l'etat ultimate pendant la sequence
         elif not self.on_ground:
             self.state = "jump"
+        elif self.is_crouching:
+            self.state = "crouch"
         elif self.velocity_x != 0:
             self.state = "run"
         else:
             self.state = "idle"
 
-        # Animation de course
-        if self.state == "run":
+        # Animation de course ou accroupi
+        if self.state in ("run", "crouch"):
             self.anim_timer += dt_ms
-            if self.anim_timer >= 150:  # Change frame toutes les 150ms
+            # Crouch anime plus lentement que la course
+            anim_speed = 250 if self.state == "crouch" else 150
+            if self.anim_timer >= anim_speed:
                 self.anim_timer = 0
                 self.anim_frame = (self.anim_frame + 1) % 2
 

@@ -122,7 +122,7 @@ LANE_KEYS = [pygame.K_f, pygame.K_g, pygame.K_h]  # Touches F, G, H
 # ENNEMIS
 # =============================================================================
 # Hater (ennemi de base)
-HATER_SPEED = 2
+HATER_SPEED = 1.2
 HATER_HEALTH = 2
 HATER_DAMAGE = 1
 HATER_WIDTH = 48
@@ -131,7 +131,7 @@ HATER_DETECTION_RANGE = 300
 HATER_SCORE = 100
 
 # Rockstar rival
-RIVAL_SPEED = 3
+RIVAL_SPEED = 1.8
 RIVAL_HEALTH = 3
 RIVAL_DAMAGE = 1
 RIVAL_WIDTH = 56
@@ -160,13 +160,13 @@ BOSS_PHASE_3_THRESHOLD = 0.3  # 30% vie
 PICKUP_NOTE_SCORE = 50
 PICKUP_MEDIATOR_ULTIMATE = 25  # Charge ultime
 PICKUP_AMPLI_DURATION = 5000  # ms de boost
-PICKUP_WIDTH = 32
-PICKUP_HEIGHT = 32
+PICKUP_WIDTH = 52
+PICKUP_HEIGHT = 52
 
 # =============================================================================
 # NIVEAUX
 # =============================================================================
-LEVEL_NAMES = ["Coulisses", "Scene", "Boss Arena"]
+LEVEL_NAMES = ["Centre-ville", "Scene", "Boss Arena"]
 
 # Checkpoints (positions X pour chaque niveau)
 CHECKPOINT_POSITIONS = {
@@ -226,6 +226,8 @@ IMG_PLAYER1_RUN2 = "player1_run2.png"
 IMG_PLAYER1_JUMP = "player1_jump.png"
 IMG_PLAYER1_ATTACK = "player1_attack.png"
 IMG_PLAYER1_ULTIMATE = "player1_ultimate.png"
+IMG_PLAYER1_CROUCH1 = "player1_crouch1.png"
+IMG_PLAYER1_CROUCH2 = "player1_crouch2.png"
 
 # Joueur 2
 IMG_PLAYER2_IDLE = "player2_idle.png"
@@ -234,13 +236,30 @@ IMG_PLAYER2_RUN2 = "player2_run2.png"
 IMG_PLAYER2_JUMP = "player2_jump.png"
 IMG_PLAYER2_ATTACK = "player2_attack.png"
 IMG_PLAYER2_ULTIMATE = "player2_ultimate.png"
+IMG_PLAYER2_CROUCH1 = "player2_crouch1.png"
+IMG_PLAYER2_CROUCH2 = "player2_crouch2.png"
 
-# Ennemis
+# Ennemis - Hater
 IMG_HATER_IDLE = "hater_idle.png"
+IMG_HATER_RUN = "hater_run.png"
+IMG_HATER_RUN1 = "hater_run1.png"
+IMG_HATER_ATTACK = "hater_attack.png"
+IMG_HATER_DEAD = "hater_dead.png"
 IMG_HATER_HIT = "hater_hit.png"
+
+# Ennemis - Rival
 IMG_RIVAL_IDLE = "rival_idle.png"
+IMG_RIVAL_RUN1 = "rival_run1.png"
+IMG_RIVAL_RUN2 = "rival_run2.png"
+IMG_RIVAL_ATTACK = "rival_attack.png"
+IMG_RIVAL_DEAD = "rival_dead.png"
 IMG_RIVAL_HIT = "rival_hit.png"
+
+# Ennemis - Boss
 IMG_BOSS_IDLE = "boss_idle.png"
+IMG_BOSS_RUN1 = "boss_run1.png"
+IMG_BOSS_RUN2 = "boss_run2.png"
+IMG_BOSS_JUMP = "boss_jump.png"
 IMG_BOSS_ATTACK = "boss_attack.png"
 IMG_BOSS_HIT = "boss_hit.png"
 
@@ -260,6 +279,7 @@ IMG_ULTIMATE_BAR = "ultimate_bar.png"
 IMG_NOTE = "note.png"
 IMG_MEDIATOR = "mediator.png"
 IMG_AMPLI = "ampli.png"
+IMG_HEALTH = "health.png"
 
 # Backgrounds
 IMG_BG_MENU = "bg_menu.png"
@@ -273,6 +293,7 @@ IMG_GAMEOVER = "gameover.png"
 IMG_PAUSE = "pause.png"
 IMG_WIN = "win.png"
 IMG_BOSS_INTRO = "combat_final.png"  # Ecran avant combat final
+IMG_LOGO = "logo.png"
 
 # Plateformes
 IMG_PLATFORM = "platform.png"
@@ -284,6 +305,7 @@ IMG_GROUND = "ground.png"
 # =============================================================================
 STATE_MENU = "menu"
 STATE_CHARACTER_SELECT = "character_select"
+STATE_LEVEL_SELECT = "level_select"
 STATE_GAMEPLAY = "gameplay"
 STATE_PAUSE = "pause"
 STATE_GAME_OVER = "game_over"
@@ -296,6 +318,7 @@ CONTROLS = {
     "left": [pygame.K_LEFT, pygame.K_a],
     "right": [pygame.K_RIGHT, pygame.K_d],
     "jump": [pygame.K_SPACE, pygame.K_w, pygame.K_UP],
+    "crouch": [pygame.K_DOWN, pygame.K_s],
     "attack": [pygame.K_j],
     "ultimate": [pygame.K_k],
     "pause": [pygame.K_ESCAPE],
