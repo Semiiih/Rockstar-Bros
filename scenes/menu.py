@@ -4,6 +4,7 @@ Gere le menu, la selection de personnage et le lancement du jeu
 """
 
 import pygame
+from pathlib import Path
 from scenes.base import Scene
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, GRAY, PURPLE, ORANGE,
@@ -24,6 +25,8 @@ class MenuScene(Scene):
         self.font_title = None
         self.font_menu = None
         self.font_small = None
+        self.menu_music_sound = None  # Stock du sound object pour le fallback
+        self.menu_music_channel = None  # Stock du channel pour la musique du menu
 
         # Etat du menu
         self.menu_state = "main"  # "main" ou "character_select"
@@ -90,13 +93,39 @@ class MenuScene(Scene):
 
     def _play_menu_music(self):
         """Charge et joue la musique du menu"""
+        print("\n=== MENU MUSIC START ===")
+        music_path = SND_DIR / SND_MUSIC_MENU
+        music_path_str = str(music_path)
+        print(f"Path: {music_path_str}")
+        print(f"Exists: {Path(music_path_str).exists()}")
+        
         try:
-            music_path = SND_DIR / SND_MUSIC_MENU
-            pygame.mixer.music.load(str(music_path))
-            pygame.mixer.music.set_volume(0.5)
-            pygame.mixer.music.play(-1)  # -1 = boucle infinie
-        except (pygame.error, FileNotFoundError) as e:
-            print(f"Impossible de charger la musique du menu: {e}")
+            pygame.mixer.music.load(music_path_str)
+            pygame.mixer.music.set_volume(0.6)
+            pygame.mixer.music.play(-1)
+            print("✓ Musique chargée et lancée avec mixer.music")
+        except Exception as e:
+            print(f"✗ mixer.music failed: {e}, trying Sound...")
+            try:
+                self.menu_music_sound = pygame.mixer.Sound(music_path_str)
+                self.menu_music_sound.set_volume(0.6)
+                self.menu_music_channel = pygame.mixer.find_channel()
+                if self.menu_music_channel:
+                    self.menu_music_channel.play(self.menu_music_sound, loops=-1)
+                    print("✓ Musique lancée avec Sound + channel")
+                else:
+                    print("✗ No channel available")
+            except Exception as e2:
+                print(f"✗ Sound also failed: {e2}")
+        print("=== MENU MUSIC END ===\n")
+
+    def exit(self):
+        """Arrete la musique du menu quand on quitte la scene"""
+        pygame.mixer.music.stop()
+        if self.menu_music_sound:
+            self.menu_music_sound.stop()
+        if self.menu_music_channel:
+            self.menu_music_channel.stop()
 
     def handle_event(self, event):
         """Gere les evenements du menu"""

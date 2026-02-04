@@ -40,20 +40,20 @@ from settings import (
     # Niveaux
     LEVEL_NAMES, LEVEL_LENGTHS,
     # Images
-    IMG_PLAYER_DIR, IMG_ENEMIES_DIR, IMG_BG_DIR, IMG_UI_DIR, IMG_FX_DIR,
+    IMG_DIR, IMG_PLAYER_DIR, IMG_ENEMIES_DIR, IMG_BG_DIR, IMG_UI_DIR, IMG_FX_DIR,
     IMG_PLAYER1_IDLE, IMG_PLAYER1_RUN1, IMG_PLAYER1_RUN2, IMG_PLAYER1_JUMP, IMG_PLAYER1_ATTACK,
     IMG_PLAYER2_IDLE, IMG_PLAYER2_RUN1, IMG_PLAYER2_RUN2, IMG_PLAYER2_JUMP, IMG_PLAYER2_ATTACK,
     IMG_PLAYER1_ULTIMATE, IMG_PLAYER2_ULTIMATE,
     IMG_HATER_IDLE, IMG_RIVAL_IDLE, IMG_BOSS_IDLE, IMG_BOSS_ATTACK,
     IMG_PROJECTILE, IMG_BOSS_PROJECTILE,
     IMG_BG_LEVEL1, IMG_BG_LEVEL2, IMG_BG_BOSS,
-    IMG_HEART_FULL, IMG_HEART_EMPTY,
+    IMG_HEART_FULL, IMG_HEART_EMPTY, IMG_BOSS_INTRO,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     IMG_NOTE, IMG_MEDIATOR, IMG_AMPLI,
     # HUD
     HUD_MARGIN, HUD_HEALTH_SIZE,
     # Sons
-    SND_DIR, SND_MUSIC_LEVEL1, SND_MUSIC_LEVEL2, SND_MUSIC_BOSS, SND_VICTORY,
+    SND_DIR, SND_MUSIC_LEVEL1, SND_MUSIC_LEVEL2, SND_MUSIC_BOSS, SND_MUSIC_BOSS_INTRO, SND_VICTORY, SND_DEATH, SND_JUMP, SND_PLAYER_SHOOT, SND_ENEMY_DEATH, SND_BONUS_PICKUP,
     # Plateformes
     IMG_PLATFORMS_DIR, IMG_PLATFORM, IMG_PLATFORM_SMALL, IMG_GROUND,
 )
@@ -66,9 +66,10 @@ from settings import (
 class Player(pygame.sprite.Sprite):
     """Classe du joueur"""
 
-    def __init__(self, character_id, x, y):
+    def __init__(self, character_id, x, y, scene=None):
         super().__init__()
         self.character_id = character_id
+        self.scene = scene  # Reference a la scene pour jouer les sons
 
         # Images
         self.images = {}
@@ -183,6 +184,9 @@ class Player(pygame.sprite.Sprite):
         if jump and self.on_ground:
             self.velocity_y = -PLAYER_JUMP_FORCE
             self.on_ground = False
+            # Jouer le son de saut
+            if self.scene:
+                self.scene._play_sound(SND_JUMP)
 
     def update(self, dt, platforms):
         """Met a jour le joueur"""
@@ -793,6 +797,16 @@ class GameplayScene(Scene):
         self.celebration_timer = 0
         self.celebration_particles = []
 
+        # Transition vers boss (image intro combat final)
+        self.boss_intro_active = False
+        self.boss_intro_timer = 0
+        self.boss_intro_image = None
+        self.boss_intro_duration = 6000  # 6 secondes en ms
+        self.boss_intro_sound = None  # Stock du sound object si on utilise le fallback
+        self.boss_intro_channel = None  # Channel pour la musique du boss
+        self.level_music_sound = None  # Stock du sound object pour les musiques de niveau
+        self.level_music_channel = None  # Channel pour la musique de niveau
+
         # Affichage des degats
         self.damage_numbers = []  # Liste: {"x", "y", "damage", "timer", "color"}
 
@@ -822,7 +836,7 @@ class GameplayScene(Scene):
         self.pickups.empty()
 
         # Creer le joueur
-        self.player = Player(character_id, 100, GROUND_Y)
+        self.player = Player(character_id, 100, GROUND_Y, scene=self)
         self.player.health = self.game.game_data["lives"]
         self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
         self.all_sprites.add(self.player)
@@ -850,19 +864,47 @@ class GameplayScene(Scene):
 
     def _play_level_music(self):
         """Charge et joue la musique du niveau actuel"""
+        # Pour le niveau 3, la musique est deja lancee par l'intro du boss
+        if self.current_level == 3:
+            return
+        
+        # Arreter la musique precedente
+        pygame.mixer.music.stop()
+        if self.level_music_sound:
+            self.level_music_sound.stop()
+        if self.level_music_channel:
+            self.level_music_channel.stop()
+        self.level_music_sound = None
+        self.level_music_channel = None
+        
         music_files = {
             1: SND_MUSIC_LEVEL1,
             2: SND_MUSIC_LEVEL2,
-            3: SND_MUSIC_BOSS,
         }
         try:
             music_file = music_files.get(self.current_level, SND_MUSIC_LEVEL1)
             music_path = SND_DIR / music_file
-            pygame.mixer.music.load(str(music_path))
-            pygame.mixer.music.set_volume(0.5)
+            music_path_str = str(music_path)
+            print(f"Tentative de chargement musique niveau: {music_path_str}")
+            pygame.mixer.music.load(music_path_str)
+            pygame.mixer.music.set_volume(0.4)  # Volume un peu plus fort
             pygame.mixer.music.play(-1)  # -1 = boucle infinie
-        except (pygame.error, FileNotFoundError) as e:
+            print(f"Musique du niveau {self.current_level} lancee")
+        except Exception as e:
             print(f"Impossible de charger la musique du niveau: {e}")
+            # Fallback: essayer comme Sound au lieu de Music
+            try:
+                self.level_music_sound = pygame.mixer.Sound(music_path_str)
+                self.level_music_sound.set_volume(0.4)
+                # Utiliser un channel pour jouer avec boucle et STOCKER le channel
+                self.level_music_channel = pygame.mixer.find_channel()
+                if self.level_music_channel:
+                    self.level_music_channel.play(self.level_music_sound, loops=-1)
+                    print(f"Musique du niveau {self.current_level} lancee avec Sound (fallback)")
+                else:
+                    print("Aucun channel disponible")
+            except Exception as e2:
+                print(f"Fallback aussi echoue: {e2}")
 
     def _load_level(self):
         """Charge le niveau actuel"""
@@ -1084,6 +1126,9 @@ class GameplayScene(Scene):
         proj_x = self.player.rect.centerx + (30 * direction)
         proj = Projectile(proj_x, self.player.rect.centery, direction, 1.0)
         self.player_projectiles.add(proj)
+        
+        # Jouer le son de tir
+        self._play_sound(SND_PLAYER_SHOOT)
 
         self.player.attack()
 
@@ -1195,6 +1240,11 @@ class GameplayScene(Scene):
         # Timer pour animations visuelles (toujours actif)
         self.animation_time += dt
 
+        # Pendant l'intro du boss: animation seulement
+        if self.boss_intro_active:
+            self._update_boss_intro(dt_ms)
+            return
+
         # Pendant l'ultime: TOUT EST FIGE sauf la sequence Guitar Hero
         if self.ultimate_active:
             self._update_ultimate_sequence(dt_ms)
@@ -1252,6 +1302,7 @@ class GameplayScene(Scene):
 
         # Verifier game over
         if self.player.health <= 0:
+            self._stop_all_music()  # Arreter toute la musique
             self.game.game_data["score"] = self.game.game_data.get("score", 0)
             self.game.change_scene(STATE_GAME_OVER)
 
@@ -1295,6 +1346,7 @@ class GameplayScene(Scene):
 
         # Joueur tombe dans le vide
         if self.player.rect.top > fall_limit:
+            self._play_sound(SND_DEATH)  # Jouer le son de mort
             self.player.health = 0  # Mort instantanee
 
         # Ennemis tombent dans le vide
@@ -1332,6 +1384,7 @@ class GameplayScene(Scene):
 
                     if is_dead:
                         self.game.game_data["score"] += enemy.score_value
+                        self._play_sound(SND_ENEMY_DEATH)  # Son de mort d'ennemi
                         if isinstance(enemy, Boss):
                             self.boss = None
                         enemy.kill()
@@ -1361,6 +1414,8 @@ class GameplayScene(Scene):
 
     def _collect_pickup(self, pickup):
         """Collecte un pickup"""
+        self._play_sound(SND_BONUS_PICKUP)  # Son de collecte de bonus
+        
         if pickup.pickup_type == "note":
             self.game.game_data["score"] += PICKUP_NOTE_SCORE
         elif pickup.pickup_type == "mediator":
@@ -1379,6 +1434,31 @@ class GameplayScene(Scene):
 
         # Lissage
         self.camera_x += (target_x - self.camera_x) * 0.1
+
+    def _play_sound(self, sound_file):
+        """Joue un son"""
+        try:
+            sound_path = SND_DIR / sound_file
+            sound = pygame.mixer.Sound(str(sound_path))
+            sound.set_volume(0.25)  # Volume reduit (0.25 = 25%) pour les effets sonores
+            sound.play()
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Impossible de jouer le son: {e}")
+
+    def _stop_all_music(self):
+        """Arrete toute la musique (music et sound des niveaux/boss et leurs channels)"""
+        # Arreter mixer.music
+        pygame.mixer.music.stop()
+        
+        # Arreter les sounds et channels stockes
+        if self.level_music_sound:
+            self.level_music_sound.stop()
+        if self.level_music_channel:
+            self.level_music_channel.stop()
+        if self.boss_intro_sound:
+            self.boss_intro_sound.stop()
+        if self.boss_intro_channel:
+            self.boss_intro_channel.stop()
 
     def _check_level_end(self):
         """Verifie si le niveau est termine"""
@@ -1403,6 +1483,9 @@ class GameplayScene(Scene):
         for _ in range(50):
             self._spawn_celebration_particle()
 
+        # Arreter la musique du boss
+        self._stop_all_music()
+        
         # Jouer la musique de victoire
         try:
             music_path = SND_DIR / SND_VICTORY
@@ -1411,6 +1494,58 @@ class GameplayScene(Scene):
             pygame.mixer.music.play()
         except (pygame.error, FileNotFoundError) as e:
             print(f"Impossible de charger la musique de victoire: {e}")
+
+    def _start_boss_intro(self):
+        """Demarre l'ecran d'intro avant le combat final"""
+        self.boss_intro_active = True
+        self.boss_intro_timer = 0
+        self.boss_intro_sound = None  # Reset le son precedent
+        self.boss_intro_channel = None
+        
+        # Charger l'image d'intro
+        try:
+            img_path = IMG_DIR / IMG_BOSS_INTRO
+            self.boss_intro_image = pygame.image.load(str(img_path)).convert()
+            self.boss_intro_image = pygame.transform.scale(self.boss_intro_image, (WIDTH, HEIGHT))
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Impossible de charger l'image du boss intro: {e}")
+            self.boss_intro_image = None
+        
+        # Arreter la musique precedente (mixer.music ET level_music_sound et tous les channels)
+        self._stop_all_music()
+        try:
+            music_path = SND_DIR / SND_MUSIC_BOSS_INTRO
+            music_path_str = str(music_path)
+            print(f"Tentative de chargement: {music_path_str}")
+            pygame.mixer.music.load(music_path_str)
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play(-1)  # -1 = boucle infinie
+            print(f"Musique du combat final lancee")
+        except Exception as e:
+            print(f"Impossible de charger la musique du combat final: {e}")
+            # Fallback: essayer comme Sound au lieu de Music
+            try:
+                self.boss_intro_sound = pygame.mixer.Sound(music_path_str)
+                self.boss_intro_sound.set_volume(0.5)
+                # Utiliser un channel pour jouer avec boucle et STOCKER le channel
+                self.boss_intro_channel = pygame.mixer.find_channel()
+                if self.boss_intro_channel:
+                    self.boss_intro_channel.play(self.boss_intro_sound, loops=-1)
+                    print(f"Musique du combat final lancee avec Sound (fallback)")
+                else:
+                    print("Aucun channel disponible")
+            except Exception as e2:
+                print(f"Fallback aussi echoue: {e2}")
+
+    def _update_boss_intro(self, dt_ms):
+        """Met a jour l'animation d'intro du boss"""
+        self.boss_intro_timer += dt_ms
+        
+        # Si 6 secondes sont ecoulees, lancer le boss
+        if self.boss_intro_timer >= self.boss_intro_duration:
+            self.boss_intro_active = False
+            self.game.game_data["current_level"] = 3
+            self.enter()
 
     def _spawn_celebration_particle(self):
         """Cree une particule de celebration (confetti)"""
@@ -1455,9 +1590,13 @@ class GameplayScene(Scene):
         self.game.game_data["ultimate_charge"] = self.player.ultimate_charge
 
         if self.current_level < 3:
-            # Passer au niveau suivant
-            self.game.game_data["current_level"] += 1
-            self.enter()
+            if self.current_level == 2:
+                # Transition vers le boss avec image intro
+                self._start_boss_intro()
+            else:
+                # Passer au niveau suivant normalement
+                self.game.game_data["current_level"] += 1
+                self.enter()
         else:
             # Victoire!
             self.game.change_scene(STATE_VICTORY)
@@ -1529,6 +1668,23 @@ class GameplayScene(Scene):
         # Celebration (apres avoir battu le boss)
         if self.celebration_active:
             self._draw_celebration(screen)
+
+        # Boss intro (transition avant combat final)
+        if self.boss_intro_active:
+            self._draw_boss_intro(screen)
+
+    def _draw_boss_intro(self, screen):
+        """Dessine l'ecran d'intro du boss"""
+        if self.boss_intro_image:
+            screen.blit(self.boss_intro_image, (0, 0))
+        else:
+            # Fond noir si pas d'image
+            screen.fill((0, 0, 0))
+            # Afficher un texte si pas d'image
+            font = pygame.font.Font(None, 48)
+            text = font.render("COMBAT FINAL", True, YELLOW)
+            text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+            screen.blit(text, text_rect)
 
     def _draw_celebration(self, screen):
         """Dessine l'animation de celebration"""

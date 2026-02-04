@@ -75,6 +75,10 @@ class Game:
     def change_scene(self, scene_name, **kwargs):
         """Change la scene avec transition slide"""
         if scene_name in self.scenes and not self.transitioning:
+            # Appeler exit() sur la scene actuelle avant de changer
+            if self.current_scene:
+                self.current_scene.exit()
+            
             # Capturer l'ecran actuel
             self.transition_from_surface = self.screen.copy()
 

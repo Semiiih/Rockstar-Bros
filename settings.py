@@ -200,10 +200,14 @@ HUD_TITLE_FONT_SIZE = 48
 # SONS (noms des fichiers)
 # =============================================================================
 SND_MUSIC_MENU = "menu_music.wav"
-SND_MUSIC_LEVEL1 = "level1_music.wav"
-SND_MUSIC_LEVEL2 = "level2_music.wav"
+SND_MUSIC_LEVEL1 = "level1.wav"
+SND_MUSIC_LEVEL2 = "level1.wav"  # Meme musique que level1 (pas de level2_music.wav)
 SND_MUSIC_BOSS = "boss_music.wav"
+SND_MUSIC_BOSS_INTRO = "combat_final.wav"
 SND_ATTACK = "attack.wav"
+SND_PLAYER_SHOOT = "player_shoot.wav"
+SND_ENEMY_DEATH = "ennemi_mort.wav"
+SND_BONUS_PICKUP = "bonus_player.wav"
 SND_HIT = "hit.wav"
 SND_JUMP = "jump.wav"
 SND_PICKUP = "pickup.wav"
@@ -268,6 +272,7 @@ IMG_HOME = "home.png"
 IMG_GAMEOVER = "gameover.png"
 IMG_PAUSE = "pause.png"
 IMG_WIN = "win.png"
+IMG_BOSS_INTRO = "combat_final.png"  # Ecran avant combat final
 
 # Plateformes
 IMG_PLATFORM = "platform.png"
