@@ -85,9 +85,9 @@ class Enemy(pygame.sprite.Sprite):
             self.can_shoot = (enemy_type == "rival_shooter")
             # Attributs pour tirer
             if self.can_shoot:
-                self.detection_range = 700  # Portée augmentée pour les tireurs (700px au lieu de 400px)
+                self.detection_range = 800  # Grande portée pour les tireurs (800px)
                 self.shoot_cooldown = RIVAL_SHOOT_COOLDOWN
-                self.shoot_timer = 1000  # Premier tir apres 1 seconde
+                self.shoot_timer = 1500  # Premier tir apres 1.5 seconde (laisse le temps au joueur)
                 self.shoot_anim_timer = 0  # Timer pour l'animation de tir
             else:
                 self.detection_range = RIVAL_DETECTION_RANGE
@@ -229,7 +229,7 @@ class Enemy(pygame.sprite.Sprite):
             self.hit_flash -= dt_ms
 
         # Gestion du tir pour les rivals tireurs
-        if self.can_shoot and projectile_group:
+        if self.can_shoot and projectile_group is not None:
             # Decrémenter le timer d'animation de tir
             if self.shoot_anim_timer > 0:
                 self.shoot_anim_timer -= dt_ms
@@ -247,10 +247,11 @@ class Enemy(pygame.sprite.Sprite):
                         player_rect.centery
                     )
                     projectile_group.add(proj)
-                    self.shoot_timer = self.shoot_cooldown
                     # Activer l'animation de tir
                     self.shoot_anim_timer = 400  # Animation pendant 400ms
                     self.state = "attack"
+                # Reset le timer meme si hors portee pour eviter accumulation negative
+                self.shoot_timer = self.shoot_cooldown
 
         # Physique differente pour les volants
         if self.can_fly:
@@ -315,52 +316,55 @@ class Enemy(pygame.sprite.Sprite):
         if self.on_ground:
             dist_to_player_x = abs(self.rect.centerx - player_rect.centerx)
 
-            # Les rivals tireurs restent immobiles, ils regardent juste le joueur
+            # Les rivals tireurs (rival_shooter) restent IMMOBILES et tirent
             if self.can_shoot:
-                # Ne bouge pas, mais regarde le joueur
+                # Ne bouge JAMAIS, regarde juste le joueur
                 self.facing_right = player_rect.centerx > self.rect.centerx
-                self.state = "idle"
-            elif dist_to_player_x < self.detection_range:
-                # Zone morte: si le joueur est trop proche horizontalement, ne pas bouger
-                # Evite l'effet "toupie" quand le joueur est au-dessus
-                if dist_to_player_x > 25:
-                    # Poursuit le joueur (sauf si bloque par un autre ennemi)
-                    if player_rect.centerx < self.rect.centerx:
-                        if not blocked_left:
-                            self.rect.x -= self.speed
-                            is_moving = True
-                        self.facing_right = False
+                # L'état est géré par le tir (shoot_anim_timer)
+                if self.shoot_anim_timer <= 0:
+                    self.state = "idle"
+            else:
+                # Tous les autres ennemis (hater, hater_flying, rival) BOUGENT et FRAPPENT
+                if dist_to_player_x < self.detection_range:
+                    # Zone morte: si le joueur est trop proche horizontalement, ne pas bouger
+                    # Evite l'effet "toupie" quand le joueur est au-dessus
+                    if dist_to_player_x > 25:
+                        # Poursuit le joueur (sauf si bloque par un autre ennemi)
+                        if player_rect.centerx < self.rect.centerx:
+                            if not blocked_left:
+                                self.rect.x -= self.speed
+                                is_moving = True
+                            self.facing_right = False
+                        else:
+                            if not blocked_right:
+                                self.rect.x += self.speed
+                                is_moving = True
+                            self.facing_right = True
+                        if is_moving:
+                            self.state = "run"
                     else:
-                        if not blocked_right:
-                            self.rect.x += self.speed
-                            is_moving = True
-                        self.facing_right = True
+                        # Trop proche horizontalement, s'arreter et regarder le joueur
+                        self.facing_right = player_rect.centerx > self.rect.centerx
+                        self.state = "idle"
+
+                    # Attaque au corps a corps si tres proche
+                    if dist_to_player_x < 80:
+                        self.state = "attack"
+                else:
+                    # Patrouille (sauf si bloque)
+                    move_dir = self.speed * self.patrol_direction
+                    can_move = (move_dir < 0 and not blocked_left) or (move_dir > 0 and not blocked_right)
+                    if can_move:
+                        self.rect.x += move_dir
+                        is_moving = True
+                    if abs(self.rect.x - self.start_x) > self.patrol_distance:
+                        self.patrol_direction *= -1
+                        self.facing_right = self.patrol_direction > 0
                     if is_moving:
                         self.state = "run"
-                else:
-                    # Trop proche horizontalement, s'arreter et regarder le joueur
-                    self.facing_right = player_rect.centerx > self.rect.centerx
-                    self.state = "idle"
-
-                # Attaque si tres proche (seulement pour les non-tireurs)
-                if dist_to_player_x < 80:
-                    self.state = "attack"
-            else:
-                # Patrouille (sauf si bloque)
-                move_dir = self.speed * self.patrol_direction
-                can_move = (move_dir < 0 and not blocked_left) or (move_dir > 0 and not blocked_right)
-                if can_move:
-                    self.rect.x += move_dir
-                    is_moving = True
-                if abs(self.rect.x - self.start_x) > self.patrol_distance:
-                    self.patrol_direction *= -1
-                    self.facing_right = self.patrol_direction > 0
-                if is_moving:
-                    self.state = "run"
+                    else:
+                        self.state = "idle"
         else:
-            self.state = "idle"
-
-        if not is_moving and not self.can_shoot:
             self.state = "idle"
 
         # Animation de course
@@ -387,7 +391,8 @@ class Enemy(pygame.sprite.Sprite):
     def draw(self, screen, camera_x):
         """Dessine l'ennemi avec effets"""
         img = self.image
-        if not self.facing_right:
+        # L'image de base regarde a gauche, donc flip si regarde a droite
+        if self.facing_right:
             img = pygame.transform.flip(img, True, False)
 
         draw_rect = self.rect.move(-camera_x, 0)
