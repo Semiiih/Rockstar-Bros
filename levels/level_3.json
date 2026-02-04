@@ -12,7 +12,7 @@
       "name": "Les Gradins",
       "width": 4000,
       "background": "bg_level2.png",
-      "music": "level2.mp3",
+      "music": "level1.wav",
       "player_spawn": { "x": 100, "y": 600 },
 
       "ground_segments": [
@@ -91,7 +91,7 @@
       "name": "Le Terrain",
       "width": 5000,
       "background": "bg_level1.png",
-      "music": "level1.mp3",
+      "music": "level1.wav",
       "player_spawn": { "x": 100, "y": 600 },
 
       "ground_segments": [
@@ -188,7 +188,7 @@
       "name": "Boss - Le Champion",
       "width": 1600,
       "background": "bg_boss.png",
-      "music": "boss.mp3",
+      "music": "combat_final.wav",
       "player_spawn": { "x": 100, "y": 600 },
       "is_boss_stage": true,
 

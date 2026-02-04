@@ -41,7 +41,7 @@ COMBO_COLOR = (255, 200, 0)
 BASE_DIR = Path(__file__).parent
 ASSETS_DIR = BASE_DIR / "assets"
 IMG_DIR = ASSETS_DIR / "images"
-SND_DIR = ASSETS_DIR / "sounds"
+SND_DIR = ASSETS_DIR / "sons"
 
 # Sous-dossiers images
 IMG_PLAYER_DIR = IMG_DIR / "player"
@@ -238,17 +238,15 @@ HUD_TITLE_FONT_SIZE = 48
 # SONS (noms des fichiers)
 # =============================================================================
 SND_MUSIC_MENU = "menu_music.wav"
-SND_MUSIC_LEVEL1 = "level1_music.wav"
-SND_MUSIC_LEVEL2 = "level2_music.wav"
-SND_MUSIC_BOSS = "boss_music.wav"
-SND_ATTACK = "attack.wav"
-SND_HIT = "hit.wav"
+SND_MUSIC_LEVEL1 = "level1.wav"
+SND_MUSIC_BOSS = "combat_final.wav"
 SND_JUMP = "jump.wav"
-SND_PICKUP = "pickup.wav"
-SND_HURT = "hurt.wav"
+SND_SHOOT = "player_shoot.wav"
+SND_PICKUP = "bonus_player.wav"
+SND_ENEMY_DEATH = "ennemi_mort.wav"
 SND_DEATH = "death.wav"
-SND_VICTORY = "victory.wav"
-SND_BEAT = "beat.wav"
+SND_VICTORY = "victory_boss.wav"
+SND_BOSS_LAUGH = "boss_rire.wav"
 
 # =============================================================================
 # IMAGES (noms des fichiers)

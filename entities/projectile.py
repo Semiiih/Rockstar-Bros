@@ -56,7 +56,7 @@ class Projectile(pygame.sprite.Sprite):
 
         # Supprime si hors ecran visible (relatif a la camera)
         screen_x = self.rect.x - camera_x
-        if screen_x < -200 or screen_x > WIDTH + 200:
+        if screen_x < -self.rect.width or screen_x > WIDTH:
             self.kill()
 
 

@@ -12,7 +12,7 @@
             "name": "Backstage",
             "width": 3000,
             "background": "bg_level1.png",
-            "music": "level1.mp3",
+            "music": "level1.wav",
             "player_spawn": {"x": 100, "y": 600},
 
             "ground_segments": [
@@ -60,7 +60,7 @@
             "name": "Entree en scene",
             "width": 4000,
             "background": "bg_level2.png",
-            "music": "level2.mp3",
+            "music": "level1.wav",
             "player_spawn": {"x": 100, "y": 600},
 
             "ground_segments": [
@@ -120,7 +120,7 @@
             "name": "Boss - Le Rival",
             "width": 1200,
             "background": "bg_boss.png",
-            "music": "boss.mp3",
+            "music": "combat_final.wav",
             "player_spawn": {"x": 100, "y": 600},
             "is_boss_stage": true,
 

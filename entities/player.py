@@ -62,6 +62,9 @@ class Player(pygame.sprite.Sprite):
         self.normal_height = PLAYER_HEIGHT
         self.crouch_height = PLAYER_HEIGHT // 2  # Moitie de la hauteur normale
 
+        # Flags pour le son
+        self.just_jumped = False
+
         # Debug
         self.debug_invincible = False
 
@@ -188,6 +191,7 @@ class Player(pygame.sprite.Sprite):
         if jump and self.on_ground and not self.is_crouching:
             self.velocity_y = -PLAYER_JUMP_FORCE
             self.on_ground = False
+            self.just_jumped = True
 
     def update(self, dt, platforms):
         """Met a jour le joueur"""

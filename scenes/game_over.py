@@ -9,7 +9,8 @@ from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, RED, GRAY,
     STATE_GAMEPLAY, STATE_MENU, CONTROLS,
     IMG_DIR, IMG_GAMEOVER,
-    FONT_METAL_MANIA, FONT_ROAD_RAGE
+    FONT_METAL_MANIA, FONT_ROAD_RAGE,
+    SND_DIR, SND_BOSS_LAUGH,
 )
 
 
@@ -45,6 +46,18 @@ class GameOverScene(Scene):
 
         self.selected_option = 0
         self.final_score = self.game.game_data.get("score", 0)
+
+        # Jouer le son de defaite (rire du boss)
+        try:
+            music_path = str(SND_DIR / SND_BOSS_LAUGH)
+            try:
+                pygame.mixer.music.load(music_path)
+            except pygame.error:
+                pygame.mixer.music.load(music_path, namehint=".mp3")
+            pygame.mixer.music.set_volume(0.6)
+            pygame.mixer.music.play(-1)
+        except (pygame.error, FileNotFoundError):
+            pass
 
         # Charger l'image de game over
         try:

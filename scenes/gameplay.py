@@ -26,7 +26,8 @@ from settings import (
     IMG_BG_DIR, IMG_ENEMIES_DIR,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     HUD_MARGIN, HUD_HEALTH_SIZE,
-    SND_DIR, SND_VICTORY,
+    SND_DIR, SND_VICTORY, SND_JUMP, SND_SHOOT, SND_PICKUP,
+    SND_ENEMY_DEATH, SND_DEATH,
 )
 
 
@@ -109,6 +110,33 @@ class GameplayScene(Scene):
 
         # Animation timer pour effets visuels
         self.animation_time = 0
+
+        # Sons d'effets (SFX)
+        self.sfx = {}
+        self._load_sfx()
+
+    def _load_sfx(self):
+        """Charge les effets sonores"""
+        sfx_files = {
+            "jump": SND_JUMP,
+            "shoot": SND_SHOOT,
+            "pickup": SND_PICKUP,
+            "enemy_death": SND_ENEMY_DEATH,
+            "death": SND_DEATH,
+        }
+        for key, filename in sfx_files.items():
+            try:
+                path = SND_DIR / filename
+                self.sfx[key] = pygame.mixer.Sound(str(path))
+                self.sfx[key].set_volume(0.5)
+            except (pygame.error, FileNotFoundError):
+                self.sfx[key] = None
+
+    def _play_sfx(self, name):
+        """Joue un effet sonore"""
+        sound = self.sfx.get(name)
+        if sound:
+            sound.play()
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
@@ -222,8 +250,11 @@ class GameplayScene(Scene):
         try:
             music_file = self.stage_data.get('music')
             if music_file:
-                music_path = SND_DIR / music_file
-                pygame.mixer.music.load(str(music_path))
+                music_path = str(SND_DIR / music_file)
+                try:
+                    pygame.mixer.music.load(music_path)
+                except pygame.error:
+                    pygame.mixer.music.load(music_path, namehint=".mp3")
                 pygame.mixer.music.set_volume(0.5)
                 pygame.mixer.music.play(-1)  # -1 = boucle infinie
         except (pygame.error, FileNotFoundError) as e:
@@ -365,6 +396,7 @@ class GameplayScene(Scene):
         proj = Projectile(proj_x, self.player.rect.centery, direction, 1.0)
         self.player_projectiles.add(proj)
 
+        self._play_sfx("shoot")
         self.player.attack()
 
     def _player_ultimate(self):
@@ -493,6 +525,11 @@ class GameplayScene(Scene):
         keys = pygame.key.get_pressed()
         self.player.handle_input(keys)
 
+        # Son de saut
+        if self.player.just_jumped:
+            self._play_sfx("jump")
+            self.player.just_jumped = False
+
         # Mise a jour des entites
         self.player.update(dt, self.platforms)
 
@@ -592,6 +629,7 @@ class GameplayScene(Scene):
 
         # Joueur tombe dans le vide
         if self.player.rect.top > fall_limit:
+            self._play_sfx("death")
             self.player.health = 0  # Mort instantanee
 
         # Ennemis tombent dans le vide
@@ -650,7 +688,9 @@ class GameplayScene(Scene):
         # Projectiles joueur -> Ennemis
         for proj in self.player_projectiles:
             for enemy in self.enemies:
-                # Ignorer les ennemis deja touches par ce projectile
+                # Ignorer les ennemis deja morts ou deja touches par ce projectile
+                if getattr(enemy, 'is_dead', False):
+                    continue
                 if enemy in getattr(proj, 'hit_enemies', []):
                     continue
                 if proj.rect.colliderect(enemy.rect):
@@ -667,11 +707,12 @@ class GameplayScene(Scene):
 
                     if is_dead:
                         self.game.game_data["score"] += enemy.score_value
+                        self._play_sfx("enemy_death")
                         if isinstance(enemy, Boss):
                             self.boss_type_dead = getattr(enemy, 'boss_type', 'boss')
                             self.boss_death_pos = (enemy.rect.centerx, enemy.rect.centery)
                             self.boss = None
-                        enemy.kill()
+                            enemy.kill()
 
                     # Verifier si le projectile peut traverser
                     if proj.pierce_count > 0:
@@ -708,6 +749,7 @@ class GameplayScene(Scene):
                     enemy.is_dead = True
                     enemy.state = "dead"
                     self.game.game_data["score"] += enemy.score_value
+                    self._play_sfx("enemy_death")
                     # Afficher "STOMP!" ou les degats
                     self._add_damage_number(
                         enemy.rect.centerx,
@@ -739,6 +781,7 @@ class GameplayScene(Scene):
 
     def _collect_pickup(self, pickup):
         """Collecte un pickup"""
+        self._play_sfx("pickup")
         if pickup.pickup_type == "note":
             self.game.game_data["score"] += PICKUP_NOTE_SCORE
         elif pickup.pickup_type == "mediator":
@@ -798,12 +841,15 @@ class GameplayScene(Scene):
         self.target_camera_x = self.boss_death_pos[0] - WIDTH // 2
         self.target_camera_x = max(0, min(self.target_camera_x, self.level_width - WIDTH))
 
-        # Jouer la musique de victoire
+        # Jouer la musique de victoire (en boucle)
         try:
-            music_path = SND_DIR / SND_VICTORY
-            pygame.mixer.music.load(str(music_path))
+            music_path = str(SND_DIR / SND_VICTORY)
+            try:
+                pygame.mixer.music.load(music_path)
+            except pygame.error:
+                pygame.mixer.music.load(music_path, namehint=".mp3")
             pygame.mixer.music.set_volume(0.7)
-            pygame.mixer.music.play()
+            pygame.mixer.music.play(-1)
         except (pygame.error, FileNotFoundError) as e:
             print(f"Impossible de charger la musique de victoire: {e}")
 

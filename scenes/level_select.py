@@ -10,7 +10,8 @@ from settings import (
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     STATE_GAMEPLAY, STATE_MENU,
     CONTROLS,
-    IMG_BG_DIR, IMG_BG_LEVEL_CHOICE
+    IMG_BG_DIR, IMG_BG_LEVEL_CHOICE,
+    SND_DIR, SND_MUSIC_MENU,
 )
 from level_loader import get_loader
 import math
@@ -216,6 +217,18 @@ class LevelSelectScene(Scene):
                 self.nodes.append(node)
 
         self.selected_node = None
+
+        # Jouer la musique du menu (meme musique que le menu principal)
+        try:
+            music_path = str(SND_DIR / SND_MUSIC_MENU)
+            try:
+                pygame.mixer.music.load(music_path)
+            except pygame.error:
+                pygame.mixer.music.load(music_path, namehint=".mp3")
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play(-1)
+        except (pygame.error, FileNotFoundError):
+            pass
 
     def handle_event(self, event):
         """Gere les evenements"""

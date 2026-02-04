@@ -156,8 +156,11 @@ class MenuScene(Scene):
     def _play_menu_music(self):
         """Charge et joue la musique du menu"""
         try:
-            music_path = SND_DIR / SND_MUSIC_MENU
-            pygame.mixer.music.load(str(music_path))
+            music_path = str(SND_DIR / SND_MUSIC_MENU)
+            try:
+                pygame.mixer.music.load(music_path)
+            except pygame.error:
+                pygame.mixer.music.load(music_path, namehint=".mp3")
             pygame.mixer.music.set_volume(0.5)
             pygame.mixer.music.play(-1)
         except (pygame.error, FileNotFoundError):

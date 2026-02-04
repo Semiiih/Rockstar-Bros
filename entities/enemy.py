@@ -422,8 +422,8 @@ class Enemy(pygame.sprite.Sprite):
 
         screen.blit(img, draw_rect)
 
-        # Effet d'impact rouge quand touche
-        if self.hit_flash > 0:
+        # Effet d'impact rouge quand touche (pas si mort)
+        if self.hit_flash > 0 and not self.is_dead:
             # Cercle d'impact rouge qui s'agrandit et disparait
             flash_progress = 1.0 - (self.hit_flash / 100)  # 0 -> 1
             impact_radius = int(15 + flash_progress * 25)
