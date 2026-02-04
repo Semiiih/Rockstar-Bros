@@ -13,8 +13,12 @@ from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, RED, GREEN, BLUE, PURPLE, ORANGE, GRAY, DARK_GRAY,
     STATE_PAUSE, STATE_GAME_OVER, STATE_VICTORY, STATE_LEVEL_SELECT, STATE_MENU, CONTROLS,
     GROUND_Y,
-    PLAYER_MAX_HEALTH, PLAYER_WIDTH, PLAYER_HEIGHT,
-    PROJECTILE_SPEED,
+    # Physique
+    GRAVITY, MAX_FALL_SPEED,
+    # Joueur
+    PLAYER_MAX_HEALTH, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED, PLAYER_JUMP_FORCE,
+    # Projectiles
+    PROJECTILE_SPEED, PROJECTILE_COOLDOWN, PROJECTILE_WIDTH, PROJECTILE_HEIGHT, PROJECTILE_DAMAGE,
     ULTIMATE_CHARGE_MAX, ULTIMATE_CHARGE_PER_HIT,
     ULTIMATE_BASE_DAMAGE, ULTIMATE_DAMAGE_PER_PERFECT, ULTIMATE_DAMAGE_PER_GOOD,
     ULTIMATE_DAMAGE_PER_OK, ULTIMATE_CHARGE_PER_PICKUP, ULTIMATE_NOTE_COUNT,
@@ -44,6 +48,7 @@ from settings import (
     IMG_PROJECTILE, IMG_BOSS_PROJECTILE,
     IMG_BG_LEVEL1, IMG_BG_LEVEL2, IMG_BG_BOSS,
     IMG_HEART_FULL, IMG_HEART_EMPTY, IMG_BOSS_INTRO,
+    IMG_NOTE, IMG_MEDIATOR, IMG_AMPLI,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     HUD_MARGIN, HUD_HEALTH_SIZE,
     # Sons
@@ -867,7 +872,7 @@ class GameplayScene(Scene):
             spawn_y = spawn_data.get('y', GROUND_Y)
 
         # Creer le joueur
-        self.player = Player(character_id, spawn_x, spawn_y)
+        self.player = Player(character_id, spawn_x, spawn_y, scene=self)
         # Si c'est le premier stage d'un niveau, remettre les vies au max
         if self.current_stage_id == 1:
             self.player.health = PLAYER_MAX_HEALTH
@@ -912,12 +917,12 @@ class GameplayScene(Scene):
         self.damage_numbers = []
 
         # Jouer la musique du niveau
-        self._play_stage_music()
+        self._play_level_music()
 
     def _play_level_music(self):
         """Charge et joue la musique du niveau actuel"""
         # Pour le niveau 3, la musique est deja lancee par l'intro du boss
-        if self.current_level == 3:
+        if self.current_level_id == 3:
             return
         
         # Arreter la musique precedente
@@ -934,14 +939,14 @@ class GameplayScene(Scene):
             2: SND_MUSIC_LEVEL2,
         }
         try:
-            music_file = music_files.get(self.current_level, SND_MUSIC_LEVEL1)
+            music_file = music_files.get(self.current_level_id, SND_MUSIC_LEVEL1)
             music_path = SND_DIR / music_file
             music_path_str = str(music_path)
             print(f"Tentative de chargement musique niveau: {music_path_str}")
             pygame.mixer.music.load(music_path_str)
             pygame.mixer.music.set_volume(0.4)  # Volume un peu plus fort
             pygame.mixer.music.play(-1)  # -1 = boucle infinie
-            print(f"Musique du niveau {self.current_level} lancee")
+            print(f"Musique du niveau {self.current_level_id} lancee")
         except Exception as e:
             print(f"Impossible de charger la musique du niveau: {e}")
             # Fallback: essayer comme Sound au lieu de Music
@@ -952,7 +957,7 @@ class GameplayScene(Scene):
                 self.level_music_channel = pygame.mixer.find_channel()
                 if self.level_music_channel:
                     self.level_music_channel.play(self.level_music_sound, loops=-1)
-                    print(f"Musique du niveau {self.current_level} lancee avec Sound (fallback)")
+                    print(f"Musique du niveau {self.current_level_id} lancee avec Sound (fallback)")
                 else:
                     print("Aucun channel disponible")
             except Exception as e2:
@@ -1084,8 +1089,6 @@ class GameplayScene(Scene):
             return
         if self.ultimate_active:
             return  # Pas d'attaque normale pendant l'ultime
-        if self.player.is_crouching:
-            return  # Pas d'attaque quand accroupi
 
         # Creer le projectile (degats fixes)
         direction = 1 if self.player.facing_right else -1
@@ -1232,7 +1235,7 @@ class GameplayScene(Scene):
         self.player.update(dt, self.platforms)
 
         for proj in self.player_projectiles:
-            proj.update(dt, self.camera_x)
+            proj.update(dt)
 
         for proj in self.boss_projectiles:
             proj.update(dt)
@@ -1247,7 +1250,7 @@ class GameplayScene(Scene):
             if isinstance(enemy, Boss):
                 enemy.update(dt, self.player.rect, self.boss_projectiles)
             else:
-                enemy.update(dt, self.player.rect, self.platforms, normal_enemies)
+                enemy.update(dt, self.player.rect, self.platforms)
 
         # Empecher les ennemis de se chevaucher
         self._resolve_enemy_collisions()
@@ -1327,8 +1330,8 @@ class GameplayScene(Scene):
 
     def _resolve_enemy_collisions(self):
         """Empeche les ennemis de se chevaucher"""
-        # Filtrer les ennemis vivants seulement (pas le boss, pas les morts)
-        enemies_list = [e for e in self.enemies if not isinstance(e, Boss) and not e.is_dead]
+        # Filtrer les ennemis vivants seulement (pas le boss)
+        enemies_list = [e for e in self.enemies if not isinstance(e, Boss)]
 
         # Distance minimale entre ennemis pour eviter l'oscillation
         min_separation = 10
@@ -1642,12 +1645,12 @@ class GameplayScene(Scene):
         total_stages = len(self.level_data.get('stages', [])) if self.level_data else 3
 
         if self.current_stage_id < total_stages:
-            if self.current_level == 2:
+            if self.current_level_id == 2:
                 # Transition vers le boss avec image intro
                 self._start_boss_intro()
             else:
                 # Passer au stage suivant du meme niveau
-            self.current_stage_id += 1 normalement
+                self.current_stage_id += 1
                 self.game.game_data["current_stage"] = self.current_stage_id
                 self.enter(level_id=self.current_level_id, stage_id=self.current_stage_id)
         else:
