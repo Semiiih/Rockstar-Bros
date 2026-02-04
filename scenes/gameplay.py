@@ -150,8 +150,15 @@ class GameplayScene(Scene):
 
         # Creer le joueur
         self.player = Player(character_id, spawn_x, spawn_y)
-        self.player.health = self.game.game_data["lives"]
-        self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
+        # Si c'est le premier stage d'un niveau, remettre les vies au max
+        if self.current_stage_id == 1:
+            self.player.health = PLAYER_MAX_HEALTH
+            self.game.game_data["lives"] = PLAYER_MAX_HEALTH
+            self.player.ultimate_charge = 0
+            self.game.game_data["ultimate_charge"] = 0
+        else:
+            self.player.health = self.game.game_data["lives"]
+            self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
         self.all_sprites.add(self.player)
 
         # Charger le stage depuis la config
@@ -690,6 +697,10 @@ class GameplayScene(Scene):
         elif pickup.pickup_type == "ampli":
             # Boost temporaire (a implementer si besoin)
             self.game.game_data["score"] += PICKUP_NOTE_SCORE * 2
+        elif pickup.pickup_type == "health":
+            # Soigne le joueur d'un coeur
+            self.player.heal(1)
+            self.game.game_data["lives"] = self.player.health
 
     def _update_camera(self):
         """Met a jour la position de la camera"""

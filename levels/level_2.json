@@ -123,6 +123,7 @@
                 {"x": 1750, "y": 440, "type": "note"},
                 {"x": 2050, "y": 310, "type": "mediator"},
                 {"x": 2650, "y": 380, "type": "note"},
+                {"x": 2950, "y": 460, "type": "health"},
                 {"x": 3250, "y": 340, "type": "ampli"},
                 {"x": 3550, "y": 440, "type": "note"},
                 {"x": 4150, "y": 360, "type": "mediator"}

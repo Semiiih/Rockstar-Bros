@@ -275,6 +275,7 @@ IMG_ULTIMATE_BAR = "ultimate_bar.png"
 IMG_NOTE = "note.png"
 IMG_MEDIATOR = "mediator.png"
 IMG_AMPLI = "ampli.png"
+IMG_HEALTH = "health.png"
 
 # Backgrounds
 IMG_BG_MENU = "bg_menu.png"
