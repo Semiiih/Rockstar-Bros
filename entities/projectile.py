@@ -9,7 +9,7 @@ from settings import (
     WIDTH, HEIGHT, YELLOW, RED,
     PROJECTILE_SPEED, PROJECTILE_WIDTH, PROJECTILE_HEIGHT, PROJECTILE_DAMAGE,
     BOSS_PROJECTILE_SPEED, BOSS_DAMAGE,
-    IMG_FX_DIR, IMG_PROJECTILE,
+    IMG_FX_DIR, IMG_PROJECTILE, IMG_SHOCKWAVE,
 )
 
 
@@ -26,11 +26,15 @@ class Projectile(pygame.sprite.Sprite):
         self.damage = int(PROJECTILE_DAMAGE * damage_multiplier)
 
     def _load_image(self):
-        """Charge l'image du projectile"""
+        """Charge l'image du projectile avec proportions respectees"""
         try:
             path = IMG_FX_DIR / IMG_PROJECTILE
             img = pygame.image.load(str(path)).convert_alpha()
-            self.image = pygame.transform.scale(img, (PROJECTILE_WIDTH, PROJECTILE_HEIGHT))
+            # Garder les proportions (hauteur fixe, largeur proportionnelle)
+            original_width, original_height = img.get_size()
+            ratio = PROJECTILE_HEIGHT / original_height
+            new_width = int(original_width * ratio)
+            self.image = pygame.transform.scale(img, (new_width, PROJECTILE_HEIGHT))
         except (pygame.error, FileNotFoundError):
             pass
 
@@ -51,11 +55,13 @@ class Projectile(pygame.sprite.Sprite):
 
 
 class BossProjectile(pygame.sprite.Sprite):
-    """Projectile du boss"""
+    """Projectile du boss (shockwave)"""
 
     def __init__(self, x, y, target_x, target_y):
         super().__init__()
-        self.image = self._get_placeholder((30, 30), RED)
+        self.projectile_height = 40  # Hauteur cible du projectile
+        self.image = self._get_placeholder((40, 40), RED)
+        self._load_image()
         self.rect = self.image.get_rect(center=(x, y))
 
         # Calcul direction vers la cible
@@ -70,6 +76,19 @@ class BossProjectile(pygame.sprite.Sprite):
             self.vel_y = 0
 
         self.damage = BOSS_DAMAGE
+
+    def _load_image(self):
+        """Charge l'image shockwave avec proportions respectees"""
+        try:
+            path = IMG_FX_DIR / IMG_SHOCKWAVE
+            img = pygame.image.load(str(path)).convert_alpha()
+            # Garder les proportions (hauteur fixe, largeur proportionnelle)
+            original_width, original_height = img.get_size()
+            ratio = self.projectile_height / original_height
+            new_width = int(original_width * ratio)
+            self.image = pygame.transform.scale(img, (new_width, self.projectile_height))
+        except (pygame.error, FileNotFoundError):
+            pass
 
     def _get_placeholder(self, size, color):
         """Cree une image placeholder"""

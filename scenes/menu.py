@@ -530,7 +530,7 @@ class MenuScene(Scene):
         inst_surf.fill((0, 0, 0, 150))
         screen.blit(inst_surf, (0, HEIGHT - 50))
 
-        inst_text = self.font_small.render(text, True, GRAY)
+        inst_text = self.font_small.render(text, True, WHITE)
         inst_rect = inst_text.get_rect(center=(WIDTH // 2, HEIGHT - 25))
         screen.blit(inst_text, inst_rect)
 
@@ -544,8 +544,8 @@ class MenuScene(Scene):
         screen.blit(title_text, title_rect)
 
         # Personnages
-        p1_x = WIDTH // 4
-        p2_x = (WIDTH // 4) * 3
+        p1_x = WIDTH // 3
+        p2_x = (WIDTH // 5) * 3
         char_y = HEIGHT // 2 - 20
 
         self._draw_character_option(screen, 1, p1_x, char_y, self.player1_img, "Axel")

@@ -368,6 +368,8 @@ class GameplayScene(Scene):
             return
         if self.ultimate_active:
             return  # Pas d'attaque normale pendant l'ultime
+        if self.player.is_crouching:
+            return  # Pas d'attaque quand accroupi
 
         # Creer le projectile (degats fixes)
         direction = 1 if self.player.facing_right else -1
@@ -515,11 +517,13 @@ class GameplayScene(Scene):
             pickup.update(dt)
 
         # Mise a jour des ennemis
+        # Liste des ennemis normaux pour eviter les collisions entre eux
+        normal_enemies = [e for e in self.enemies if not isinstance(e, Boss)]
         for enemy in self.enemies:
             if isinstance(enemy, Boss):
                 enemy.update(dt, self.player.rect, self.boss_projectiles)
             else:
-                enemy.update(dt, self.player.rect, self.platforms)
+                enemy.update(dt, self.player.rect, self.platforms, normal_enemies)
 
         # Empecher les ennemis de se chevaucher
         self._resolve_enemy_collisions()
@@ -597,21 +601,30 @@ class GameplayScene(Scene):
 
     def _resolve_enemy_collisions(self):
         """Empeche les ennemis de se chevaucher"""
-        enemies_list = [e for e in self.enemies if not isinstance(e, Boss)]
+        # Filtrer les ennemis vivants seulement (pas le boss, pas les morts)
+        enemies_list = [e for e in self.enemies if not isinstance(e, Boss) and not e.is_dead]
+
+        # Distance minimale entre ennemis pour eviter l'oscillation
+        min_separation = 10
 
         for i, enemy1 in enumerate(enemies_list):
             for enemy2 in enemies_list[i + 1:]:
-                if enemy1.rect.colliderect(enemy2.rect):
-                    # Calculer le chevauchement
-                    overlap_x = min(enemy1.rect.right, enemy2.rect.right) - max(enemy1.rect.left, enemy2.rect.left)
+                # Calculer la distance entre les centres
+                dist_x = abs(enemy1.rect.centerx - enemy2.rect.centerx)
+                min_dist = (enemy1.rect.width + enemy2.rect.width) // 2 + min_separation
+
+                # Si trop proches (meme sans chevauchement strict)
+                if dist_x < min_dist and enemy1.rect.colliderect(enemy2.rect.inflate(min_separation * 2, 0)):
+                    # Calculer combien il faut pousser
+                    push_amount = (min_dist - dist_x) // 2 + 1
 
                     # Pousser les ennemis dans des directions opposees
                     if enemy1.rect.centerx < enemy2.rect.centerx:
-                        enemy1.rect.x -= overlap_x // 2 + 1
-                        enemy2.rect.x += overlap_x // 2 + 1
+                        enemy1.rect.x -= push_amount
+                        enemy2.rect.x += push_amount
                     else:
-                        enemy1.rect.x += overlap_x // 2 + 1
-                        enemy2.rect.x -= overlap_x // 2 + 1
+                        enemy1.rect.x += push_amount
+                        enemy2.rect.x -= push_amount
 
     def _add_damage_number(self, x, y, damage, color=YELLOW):
         """Ajoute un nombre de degats flottant"""
@@ -921,7 +934,7 @@ class GameplayScene(Scene):
         except (pygame.error, FileNotFoundError):
             sub_font = pygame.font.Font(None, 28)
         sub_text = sub_font.render("Tu es une vraie Rockstar!", True, WHITE)
-        sub_rect = sub_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 60))
+        sub_rect = sub_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 160))
         screen.blit(sub_text, sub_rect)
 
         # Compte a rebours avant victoire

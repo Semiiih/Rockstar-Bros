@@ -130,7 +130,7 @@ class PauseScene(Scene):
 
         # Instructions
         instructions = self.font_small.render(
-            "Fleches + Entree | Echap pour reprendre",
+            "Echap pour reprendre",
             True, GRAY
         )
         inst_rect = instructions.get_rect(center=(WIDTH // 2, frame_y + frame_height - 30))
