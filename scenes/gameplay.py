@@ -261,7 +261,8 @@ class GameplayScene(Scene):
         boss_data = self.stage_data.get('boss')
         if boss_data:
             boss_x = boss_data.get('x', WIDTH - 200)
-            self.boss = Boss(boss_x, GROUND_Y)
+            boss_type = boss_data.get('type', 'boss')
+            self.boss = Boss(boss_x, GROUND_Y, boss_type)
             self.enemies.add(self.boss)
 
     def _load_background(self):
@@ -475,6 +476,14 @@ class GameplayScene(Scene):
 
         # Mise a jour des entites
         self.player.update(dt, self.platforms)
+
+        # Empecher le joueur de sortir des bords du niveau
+        # Bord gauche: toujours bloque
+        if self.player.rect.left < 0:
+            self.player.rect.left = 0
+        # Bord droit: bloque sauf si c'est la fin du niveau (pour passer au suivant)
+        if self.player.rect.right > self.level_width:
+            self.player.rect.right = self.level_width
 
         for proj in self.player_projectiles:
             proj.update(dt, self.camera_x)

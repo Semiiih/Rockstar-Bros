@@ -67,7 +67,13 @@ class GameOverScene(Scene):
     def _select_option(self):
         """Execute l'option selectionnee"""
         if self.selected_option == 0:  # Rejouer
-            self.game.reset_game()
+            # Garder le niveau actuel, juste reset le stage au 1er et les vies
+            current_level = self.game.game_data.get("selected_level", 1)
+            self.game.game_data["current_stage"] = 1
+            self.game.game_data["score"] = 0
+            self.game.game_data["lives"] = 3
+            self.game.game_data["ultimate_charge"] = 0
+            self.game.game_data["selected_level"] = current_level
             self.game.change_scene(STATE_GAMEPLAY)
         elif self.selected_option == 1:  # Menu Principal
             self.game.change_scene(STATE_MENU)
