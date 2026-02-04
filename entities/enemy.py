@@ -6,24 +6,36 @@ Gere les ennemis (Hater, Rival) et le Boss avec animations
 import pygame
 import random
 from settings import (
-    WHITE, RED, ORANGE, GRAY, GREEN,
+    WHITE, RED, ORANGE, GRAY, GREEN, BLUE, PURPLE,
     GRAVITY, MAX_FALL_SPEED,
     HATER_SPEED, HATER_HEALTH, HATER_DAMAGE, HATER_WIDTH, HATER_HEIGHT,
     HATER_DETECTION_RANGE, HATER_SCORE,
+    HATER_FLYING_SPEED, HATER_FLYING_HEALTH, HATER_FLYING_DAMAGE, HATER_FLYING_WIDTH, HATER_FLYING_HEIGHT,
+    HATER_FLYING_DETECTION_RANGE, HATER_FLYING_SCORE, HATER_FLYING_HOVER_AMPLITUDE, HATER_FLYING_HOVER_SPEED,
     RIVAL_SPEED, RIVAL_HEALTH, RIVAL_DAMAGE, RIVAL_WIDTH, RIVAL_HEIGHT,
-    RIVAL_DETECTION_RANGE, RIVAL_SCORE,
+    RIVAL_DETECTION_RANGE, RIVAL_SCORE, RIVAL_SHOOT_COOLDOWN, RIVAL_PROJECTILE_SPEED, RIVAL_PROJECTILE_DAMAGE,
     BOSS_HEALTH, BOSS_DAMAGE, BOSS_WIDTH, BOSS_HEIGHT, BOSS_SPEED,
     BOSS_ATTACK_COOLDOWN, BOSS_SCORE,
+    BOSS2_HEALTH, BOSS2_DAMAGE, BOSS2_WIDTH, BOSS2_HEIGHT, BOSS2_SPEED,
+    BOSS2_ATTACK_COOLDOWN, BOSS2_SCORE,
+    BOSS3_HEALTH, BOSS3_DAMAGE, BOSS3_WIDTH, BOSS3_HEIGHT, BOSS3_SPEED,
+    BOSS3_ATTACK_COOLDOWN, BOSS3_SCORE,
     BOSS_PHASE_2_THRESHOLD, BOSS_PHASE_3_THRESHOLD,
     IMG_ENEMIES_DIR,
     # Hater images
     IMG_HATER_IDLE, IMG_HATER_RUN, IMG_HATER_RUN1, IMG_HATER_ATTACK, IMG_HATER_DEAD,
+    # Hater Flying images
+    IMG_HATER_FLYING_IDLE, IMG_HATER_FLYING_FLY1, IMG_HATER_FLYING_FLY2,
+    IMG_HATER_FLYING_ATTACK, IMG_HATER_FLYING_HIT, IMG_HATER_FLYING_DEAD,
     # Rival images
-    IMG_RIVAL_IDLE, IMG_RIVAL_RUN1, IMG_RIVAL_RUN2, IMG_RIVAL_ATTACK, IMG_RIVAL_DEAD,
+    IMG_RIVAL_IDLE, IMG_RIVAL_RUN1, IMG_RIVAL_RUN2, IMG_RIVAL_ATTACK, IMG_RIVAL_ATTACK2, IMG_RIVAL_DEAD,
     # Boss images
     IMG_BOSS_IDLE, IMG_BOSS_RUN1, IMG_BOSS_RUN2, IMG_BOSS_JUMP, IMG_BOSS_ATTACK,
+    IMG_BOSS2_IDLE, IMG_BOSS2_RUN1, IMG_BOSS2_RUN2, IMG_BOSS2_JUMP, IMG_BOSS2_ATTACK,
+    IMG_BOSS3_IDLE, IMG_BOSS3_RUN1, IMG_BOSS3_RUN2, IMG_BOSS3_JUMP, IMG_BOSS3_ATTACK,
 )
-from entities.projectile import BossProjectile
+from entities.projectile import BossProjectile, RivalProjectile
+import math
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -43,15 +55,54 @@ class Enemy(pygame.sprite.Sprite):
             self.detection_range = HATER_DETECTION_RANGE
             self.score_value = HATER_SCORE
             self.color = RED
-        else:  # rival
+            self.can_fly = False
+            self.can_shoot = False
+        elif enemy_type == "hater_flying":
+            self.width = HATER_FLYING_WIDTH
+            self.height = HATER_FLYING_HEIGHT
+            self.speed = HATER_FLYING_SPEED
+            self.max_health = HATER_FLYING_HEALTH
+            self.damage = HATER_FLYING_DAMAGE
+            self.detection_range = HATER_FLYING_DETECTION_RANGE
+            self.score_value = HATER_FLYING_SCORE
+            self.color = PURPLE
+            self.can_fly = True
+            self.can_shoot = False
+            # Attributs pour le vol
+            self.hover_offset = 0
+            self.hover_amplitude = HATER_FLYING_HOVER_AMPLITUDE
+            self.hover_speed = HATER_FLYING_HOVER_SPEED
+            self.base_y = y - 100  # Vole plus haut
+        elif enemy_type == "rival" or enemy_type == "rival_shooter":
             self.width = RIVAL_WIDTH
             self.height = RIVAL_HEIGHT
             self.speed = RIVAL_SPEED
             self.max_health = RIVAL_HEALTH
             self.damage = RIVAL_DAMAGE
-            self.detection_range = RIVAL_DETECTION_RANGE
             self.score_value = RIVAL_SCORE
             self.color = ORANGE
+            self.can_fly = False
+            self.can_shoot = (enemy_type == "rival_shooter")
+            # Attributs pour tirer
+            if self.can_shoot:
+                self.detection_range = 700  # Portée augmentée pour les tireurs (700px au lieu de 400px)
+                self.shoot_cooldown = RIVAL_SHOOT_COOLDOWN
+                self.shoot_timer = 1000  # Premier tir apres 1 seconde
+                self.shoot_anim_timer = 0  # Timer pour l'animation de tir
+            else:
+                self.detection_range = RIVAL_DETECTION_RANGE
+        else:
+            # Fallback
+            self.width = HATER_WIDTH
+            self.height = HATER_HEIGHT
+            self.speed = HATER_SPEED
+            self.max_health = HATER_HEALTH
+            self.damage = HATER_DAMAGE
+            self.detection_range = HATER_DETECTION_RANGE
+            self.score_value = HATER_SCORE
+            self.color = RED
+            self.can_fly = False
+            self.can_shoot = False
 
         self.health = self.max_health
 
@@ -60,8 +111,13 @@ class Enemy(pygame.sprite.Sprite):
         self._load_images()
 
         # Image par defaut
-        self.image = self.images.get("idle", self._get_placeholder((self.width, self.height), self.color))
-        self.rect = self.image.get_rect(midbottom=(x, y))
+        self.image = self.images.get("idle") or self._get_placeholder((self.width, self.height), self.color)
+
+        # Position initiale (pour les volants, spawner plus haut)
+        if self.can_fly:
+            self.rect = self.image.get_rect(center=(x, self.base_y))
+        else:
+            self.rect = self.image.get_rect(midbottom=(x, y))
 
         # Comportement
         self.facing_right = False
@@ -91,12 +147,20 @@ class Enemy(pygame.sprite.Sprite):
                 "attack": IMG_HATER_ATTACK,
                 "dead": IMG_HATER_DEAD,
             }
-        else:  # rival
+        elif self.enemy_type == "hater_flying":
+            img_files = {
+                "idle": IMG_HATER_FLYING_IDLE,
+                "run1": IMG_HATER_FLYING_FLY1,  # Animation de vol
+                "run2": IMG_HATER_FLYING_FLY2,
+                "attack": IMG_HATER_FLYING_ATTACK,
+                "dead": IMG_HATER_FLYING_DEAD,
+            }
+        else:  # rival / rival_shooter
             img_files = {
                 "idle": IMG_RIVAL_IDLE,
                 "run1": IMG_RIVAL_RUN1,
                 "run2": IMG_RIVAL_RUN2,
-                "attack": IMG_RIVAL_ATTACK,
+                "attack": IMG_RIVAL_ATTACK2 if self.can_shoot else IMG_RIVAL_ATTACK,
                 "dead": IMG_RIVAL_DEAD,
             }
 
@@ -126,7 +190,11 @@ class Enemy(pygame.sprite.Sprite):
         """Retourne l'image correspondant a l'etat actuel"""
         if self.is_dead:
             img = self.images.get("dead")
-        elif self.state == "attack":
+        elif self.can_shoot and hasattr(self, 'shoot_anim_timer') and self.shoot_anim_timer > 0:
+            # Animation de tir pour les rivals tireurs
+            img = self.images.get("attack")
+        elif self.state == "attack" and not self.can_shoot:
+            # Attaque au corps à corps seulement pour les non-tireurs
             img = self.images.get("attack")
         elif self.state == "run":
             frame_key = "run1" if self.anim_frame == 0 else "run2"
@@ -139,7 +207,7 @@ class Enemy(pygame.sprite.Sprite):
 
         return img
 
-    def update(self, dt, player_rect, platforms=None, other_enemies=None):
+    def update(self, dt, player_rect, platforms=None, other_enemies=None, projectile_group=None):
         """Met a jour l'ennemi"""
         dt_ms = dt * 1000
 
@@ -149,6 +217,10 @@ class Enemy(pygame.sprite.Sprite):
             if self.death_timer >= 2000:  # Disparait apres 2 secondes
                 self.kill()
             # Mettre a jour l'image pour afficher l'image dead
+            # Les ennemis volants tombent quand ils meurent
+            if self.can_fly and platforms:
+                self.velocity_y += GRAVITY * 0.5  # Tombent moins vite
+                self.rect.y += self.velocity_y
             self.image = self._get_current_image()
             return
 
@@ -156,34 +228,67 @@ class Enemy(pygame.sprite.Sprite):
         if self.hit_flash > 0:
             self.hit_flash -= dt_ms
 
-        # Appliquer la gravite
-        self.velocity_y += GRAVITY
-        if self.velocity_y > MAX_FALL_SPEED:
-            self.velocity_y = MAX_FALL_SPEED
+        # Gestion du tir pour les rivals tireurs
+        if self.can_shoot and projectile_group:
+            # Decrémenter le timer d'animation de tir
+            if self.shoot_anim_timer > 0:
+                self.shoot_anim_timer -= dt_ms
 
-        # Mouvement vertical pixel par pixel pour collision precise
-        self.on_ground = False
-        if platforms:
-            dy = self.velocity_y
-            if dy != 0:
-                sign = 1 if dy > 0 else -1
-                remaining = abs(dy)
+            self.shoot_timer -= dt_ms
+            if self.shoot_timer <= 0:
+                # Tirer vers le joueur si dans la range
+                dist_to_player = abs(self.rect.centerx - player_rect.centerx)
+                if dist_to_player < self.detection_range:
+                    # Creer un projectile
+                    proj = RivalProjectile(
+                        self.rect.centerx,
+                        self.rect.centery,
+                        player_rect.centerx,
+                        player_rect.centery
+                    )
+                    projectile_group.add(proj)
+                    self.shoot_timer = self.shoot_cooldown
+                    # Activer l'animation de tir
+                    self.shoot_anim_timer = 400  # Animation pendant 400ms
+                    self.state = "attack"
 
-                while remaining > 0:
-                    step = min(1, remaining)
-                    self.rect.y += sign * step
-                    remaining -= step
+        # Physique differente pour les volants
+        if self.can_fly:
+            # Pas de gravite, mouvement de hovering
+            self.hover_offset += dt * self.hover_speed
+            hover_y = math.sin(self.hover_offset) * self.hover_amplitude
+            target_y = self.base_y + hover_y
+            self.rect.centery = int(target_y)
+            self.on_ground = True  # Toujours "au sol" pour le comportement
+        else:
+            # Appliquer la gravite normalement
+            self.velocity_y += GRAVITY
+            if self.velocity_y > MAX_FALL_SPEED:
+                self.velocity_y = MAX_FALL_SPEED
 
-                    # Collision avec le sol uniquement
-                    for platform in platforms:
-                        if platform.is_ground and self.rect.colliderect(platform.rect):
-                            if sign > 0:  # Tombe
-                                self.rect.bottom = platform.rect.top
-                                self.velocity_y = 0
-                                self.on_ground = True
+            # Mouvement vertical pixel par pixel pour collision precise
+            self.on_ground = False
+            if platforms:
+                dy = self.velocity_y
+                if dy != 0:
+                    sign = 1 if dy > 0 else -1
+                    remaining = abs(dy)
+
+                    while remaining > 0:
+                        step = min(1, remaining)
+                        self.rect.y += sign * step
+                        remaining -= step
+
+                        # Collision avec le sol uniquement
+                        for platform in platforms:
+                            if platform.is_ground and self.rect.colliderect(platform.rect):
+                                if sign > 0:  # Tombe
+                                    self.rect.bottom = platform.rect.top
+                                    self.velocity_y = 0
+                                    self.on_ground = True
+                                break
+                        if self.on_ground:
                             break
-                    if self.on_ground:
-                        break
 
         # Verifier si un autre ennemi est trop proche (pour eviter l'oscillation)
         blocked_left = False
@@ -210,7 +315,12 @@ class Enemy(pygame.sprite.Sprite):
         if self.on_ground:
             dist_to_player_x = abs(self.rect.centerx - player_rect.centerx)
 
-            if dist_to_player_x < self.detection_range:
+            # Les rivals tireurs restent immobiles, ils regardent juste le joueur
+            if self.can_shoot:
+                # Ne bouge pas, mais regarde le joueur
+                self.facing_right = player_rect.centerx > self.rect.centerx
+                self.state = "idle"
+            elif dist_to_player_x < self.detection_range:
                 # Zone morte: si le joueur est trop proche horizontalement, ne pas bouger
                 # Evite l'effet "toupie" quand le joueur est au-dessus
                 if dist_to_player_x > 25:
@@ -232,7 +342,7 @@ class Enemy(pygame.sprite.Sprite):
                     self.facing_right = player_rect.centerx > self.rect.centerx
                     self.state = "idle"
 
-                # Attaque si tres proche
+                # Attaque si tres proche (seulement pour les non-tireurs)
                 if dist_to_player_x < 80:
                     self.state = "attack"
             else:
@@ -250,7 +360,7 @@ class Enemy(pygame.sprite.Sprite):
         else:
             self.state = "idle"
 
-        if not is_moving:
+        if not is_moving and not self.can_shoot:
             self.state = "idle"
 
         # Animation de course
@@ -311,28 +421,54 @@ class Enemy(pygame.sprite.Sprite):
 
 
 class Boss(pygame.sprite.Sprite):
-    """Boss final - Rockstar concurrente avec animations"""
+    """Boss - Support 3 types de boss avec stats et images differentes"""
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, boss_type="boss"):
         super().__init__()
+
+        self.boss_type = boss_type
+
+        # Config selon le type de boss
+        if boss_type == "boss2":
+            self.width = BOSS2_WIDTH
+            self.height = BOSS2_HEIGHT
+            self.max_health = BOSS2_HEALTH
+            self.damage = BOSS2_DAMAGE
+            self.speed = BOSS2_SPEED
+            self.attack_cooldown = BOSS2_ATTACK_COOLDOWN
+            self.score_value = BOSS2_SCORE
+            self.color = (150, 0, 150)  # Violet pour boss 2
+        elif boss_type == "boss3":
+            self.width = BOSS3_WIDTH
+            self.height = BOSS3_HEIGHT
+            self.max_health = BOSS3_HEALTH
+            self.damage = BOSS3_DAMAGE
+            self.speed = BOSS3_SPEED
+            self.attack_cooldown = BOSS3_ATTACK_COOLDOWN
+            self.score_value = BOSS3_SCORE
+            self.color = (255, 50, 0)  # Rouge flamboyant pour boss 3
+        else:  # boss / boss1
+            self.width = BOSS_WIDTH
+            self.height = BOSS_HEIGHT
+            self.max_health = BOSS_HEALTH
+            self.damage = BOSS_DAMAGE
+            self.speed = BOSS_SPEED
+            self.attack_cooldown = BOSS_ATTACK_COOLDOWN
+            self.score_value = BOSS_SCORE
+            self.color = (200, 0, 100)  # Rouge-violet pour boss 1
 
         # Charger toutes les images
         self.images = {}
         self._load_images()
 
-        self.image = self.images.get("idle", self._get_placeholder((BOSS_WIDTH, BOSS_HEIGHT), (200, 0, 100)))
+        self.image = self.images.get("idle") or self._get_placeholder((self.width, self.height), self.color)
         self.rect = self.image.get_rect(midbottom=(x, y))
 
-        self.max_health = BOSS_HEALTH
         self.health = self.max_health
-        self.damage = BOSS_DAMAGE
-        self.speed = BOSS_SPEED
-        self.score_value = BOSS_SCORE
 
         # Comportement
         self.phase = 1
         self.facing_right = False
-        self.attack_cooldown = BOSS_ATTACK_COOLDOWN
         self.attack_timer = self.attack_cooldown
         self.current_attack = None
         self.hit_flash = 0
@@ -350,13 +486,31 @@ class Boss(pygame.sprite.Sprite):
 
     def _load_images(self):
         """Charge toutes les images d'animation du boss"""
-        img_files = {
-            "idle": IMG_BOSS_IDLE,
-            "run1": IMG_BOSS_RUN1,
-            "run2": IMG_BOSS_RUN2,
-            "jump": IMG_BOSS_JUMP,
-            "attack": IMG_BOSS_ATTACK,
-        }
+        # Selection des images selon le type de boss
+        if self.boss_type == "boss2":
+            img_files = {
+                "idle": IMG_BOSS2_IDLE,
+                "run1": IMG_BOSS2_RUN1,
+                "run2": IMG_BOSS2_RUN2,
+                "jump": IMG_BOSS2_JUMP,
+                "attack": IMG_BOSS2_ATTACK,
+            }
+        elif self.boss_type == "boss3":
+            img_files = {
+                "idle": IMG_BOSS3_IDLE,
+                "run1": IMG_BOSS3_RUN1,
+                "run2": IMG_BOSS3_RUN2,
+                "jump": IMG_BOSS3_JUMP,
+                "attack": IMG_BOSS3_ATTACK,
+            }
+        else:  # boss1
+            img_files = {
+                "idle": IMG_BOSS_IDLE,
+                "run1": IMG_BOSS_RUN1,
+                "run2": IMG_BOSS_RUN2,
+                "jump": IMG_BOSS_JUMP,
+                "attack": IMG_BOSS_ATTACK,
+            }
 
         for key, filename in img_files.items():
             try:
@@ -365,11 +519,11 @@ class Boss(pygame.sprite.Sprite):
                 # Pour l'attaque, garder les proportions (hauteur fixe, largeur proportionnelle)
                 if key == "attack":
                     original_width, original_height = img.get_size()
-                    ratio = BOSS_HEIGHT / original_height
+                    ratio = self.height / original_height
                     new_width = int(original_width * ratio)
-                    img = pygame.transform.scale(img, (new_width, BOSS_HEIGHT))
+                    img = pygame.transform.scale(img, (new_width, self.height))
                 else:
-                    img = pygame.transform.scale(img, (BOSS_WIDTH, BOSS_HEIGHT))
+                    img = pygame.transform.scale(img, (self.width, self.height))
                 self.images[key] = img
             except (pygame.error, FileNotFoundError):
                 self.images[key] = None
@@ -379,7 +533,7 @@ class Boss(pygame.sprite.Sprite):
         surf = pygame.Surface(size, pygame.SRCALPHA)
         surf.fill(color)
         pygame.draw.rect(surf, (255, 255, 255), (20, 30, 30, 20))
-        pygame.draw.rect(surf, (255, 255, 255), (BOSS_WIDTH - 50, 30, 30, 20))
+        pygame.draw.rect(surf, (255, 255, 255), (size[0] - 50, 30, 30, 20))
         return surf
 
     def _get_current_image(self):
@@ -395,7 +549,7 @@ class Boss(pygame.sprite.Sprite):
             img = self.images.get("idle")
 
         if img is None:
-            img = self._get_placeholder((BOSS_WIDTH, BOSS_HEIGHT), (200, 0, 100))
+            img = self._get_placeholder((self.width, self.height), self.color)
 
         return img
 

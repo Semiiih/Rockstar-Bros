@@ -9,7 +9,8 @@ from settings import (
     PURPLE, ORANGE, YELLOW, GREEN, BLUE, RED,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     STATE_GAMEPLAY, STATE_MENU,
-    CONTROLS
+    CONTROLS,
+    IMG_BG_DIR, IMG_BG_LEVEL_CHOICE
 )
 from level_loader import get_loader
 import math
@@ -174,11 +175,23 @@ class LevelSelectScene(Scene):
         self.completed_levels = []
         self.level_stars = {}  # {level_id: stars_count}
 
+        # Background
+        self.background = None
+
         # Animation de fond
         self.bg_offset = 0
 
     def enter(self, **kwargs):
         """Entre dans la scene"""
+        # Charger le background
+        try:
+            bg_path = IMG_BG_DIR / IMG_BG_LEVEL_CHOICE
+            self.background = pygame.image.load(str(bg_path)).convert()
+            self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Could not load level choice background: {e}")
+            self.background = None
+
         # Recuperer la progression depuis game_data
         self.completed_levels = self.game.game_data.get('completed_levels', [])
         self.level_stars = self.game.game_data.get('level_stars', {})
@@ -243,10 +256,13 @@ class LevelSelectScene(Scene):
 
     def draw(self, screen):
         """Dessine la scene"""
-        screen.fill(BG_COLOR)
-
-        # Fond anime (etoiles ou grille)
-        self._draw_background(screen)
+        # Background image ou fond anime
+        if self.background:
+            screen.blit(self.background, (0, 0))
+        else:
+            screen.fill(BG_COLOR)
+            # Fond anime (etoiles ou grille)
+            self._draw_background(screen)
 
         # Titre
         title = self.font_title.render("SELECT YOUR STAGE", True, WHITE)

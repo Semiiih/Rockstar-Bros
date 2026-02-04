@@ -130,6 +130,17 @@ HATER_HEIGHT = 64
 HATER_DETECTION_RANGE = 300
 HATER_SCORE = 100
 
+# Hater volant (niveau 2+)
+HATER_FLYING_SPEED = 0.8  # Plus lent que les haters normaux
+HATER_FLYING_HEALTH = 2
+HATER_FLYING_DAMAGE = 1
+HATER_FLYING_WIDTH = 64
+HATER_FLYING_HEIGHT = 64
+HATER_FLYING_DETECTION_RANGE = 350
+HATER_FLYING_SCORE = 150
+HATER_FLYING_HOVER_AMPLITUDE = 20  # Amplitude du mouvement de vol
+HATER_FLYING_HOVER_SPEED = 2  # Vitesse d'oscillation
+
 # Rockstar rival
 RIVAL_SPEED = 1.8
 RIVAL_HEALTH = 3
@@ -139,7 +150,12 @@ RIVAL_HEIGHT = 80
 RIVAL_DETECTION_RANGE = 400
 RIVAL_SCORE = 200
 
-# Boss
+# Rival tireur (niveau 3)
+RIVAL_SHOOT_COOLDOWN = 2500  # ms entre chaque tir
+RIVAL_PROJECTILE_SPEED = 6
+RIVAL_PROJECTILE_DAMAGE = 1
+
+# Boss niveau 1
 BOSS_HEALTH = 20
 BOSS_DAMAGE = 2
 BOSS_WIDTH = 128
@@ -149,6 +165,28 @@ BOSS_PROJECTILE_SPEED = 8
 BOSS_ATTACK_COOLDOWN = 2000  # ms
 BOSS_SHOCKWAVE_DAMAGE = 2
 BOSS_SCORE = 1000
+
+# Boss niveau 2 - Le Manager Corrompu
+BOSS2_HEALTH = 30  # Plus de vie que Boss 1
+BOSS2_DAMAGE = 2
+BOSS2_WIDTH = 160
+BOSS2_HEIGHT = 200
+BOSS2_SPEED = 2.5
+BOSS2_PROJECTILE_SPEED = 9
+BOSS2_ATTACK_COOLDOWN = 1800  # ms - Plus rapide
+BOSS2_SHOCKWAVE_DAMAGE = 3
+BOSS2_SCORE = 1500
+
+# Boss niveau 3 - Le Rockstar Legendaire
+BOSS3_HEALTH = 45  # Plus de vie que Boss 2
+BOSS3_DAMAGE = 3
+BOSS3_WIDTH = 180
+BOSS3_HEIGHT = 220
+BOSS3_SPEED = 3
+BOSS3_PROJECTILE_SPEED = 10
+BOSS3_ATTACK_COOLDOWN = 1500  # ms - Encore plus rapide
+BOSS3_SHOCKWAVE_DAMAGE = 4
+BOSS3_SCORE = 2500
 
 # Phases du boss (% de vie restante)
 BOSS_PHASE_2_THRESHOLD = 0.6  # 60% vie
@@ -243,15 +281,24 @@ IMG_HATER_ATTACK = "hater_attack.png"
 IMG_HATER_DEAD = "hater_dead.png"
 IMG_HATER_HIT = "hater_hit.png"
 
+# Ennemis - Hater Volant
+IMG_HATER_FLYING_IDLE = "hater_flying_idle.png"
+IMG_HATER_FLYING_FLY1 = "hater_flying_fly1.png"
+IMG_HATER_FLYING_FLY2 = "hater_flying_fly2.png"
+IMG_HATER_FLYING_ATTACK = "hater_flying_attack.png"
+IMG_HATER_FLYING_HIT = "hater_flying_hit.png"
+IMG_HATER_FLYING_DEAD = "hater_flying_dead.png"
+
 # Ennemis - Rival
 IMG_RIVAL_IDLE = "rival_idle.png"
 IMG_RIVAL_RUN1 = "rival_run1.png"
 IMG_RIVAL_RUN2 = "rival_run2.png"
 IMG_RIVAL_ATTACK = "rival_attack.png"
+IMG_RIVAL_ATTACK2 = "rival_attack2.png"  # Attaque de tir pour rival_shooter
 IMG_RIVAL_DEAD = "rival_dead.png"
 IMG_RIVAL_HIT = "rival_hit.png"
 
-# Ennemis - Boss
+# Ennemis - Boss Niveau 1
 IMG_BOSS_IDLE = "boss_idle.png"
 IMG_BOSS_RUN1 = "boss_run1.png"
 IMG_BOSS_RUN2 = "boss_run2.png"
@@ -259,9 +306,28 @@ IMG_BOSS_JUMP = "boss_jump.png"
 IMG_BOSS_ATTACK = "boss_attack.png"
 IMG_BOSS_HIT = "boss_hit.png"
 
+# Ennemis - Boss Niveau 2
+IMG_BOSS2_IDLE = "boss2_idle.png"
+IMG_BOSS2_RUN1 = "boss2_run1.png"
+IMG_BOSS2_RUN2 = "boss2_run2.png"
+IMG_BOSS2_JUMP = "boss2_jump.png"
+IMG_BOSS2_ATTACK = "boss2_attack.png"
+IMG_BOSS2_HIT = "boss2_hit.png"
+
+# Ennemis - Boss Niveau 3
+IMG_BOSS3_IDLE = "boss3_idle.png"
+IMG_BOSS3_RUN1 = "boss3_run1.png"
+IMG_BOSS3_RUN2 = "boss3_run2.png"
+IMG_BOSS3_JUMP = "boss3_jump.png"
+IMG_BOSS3_ATTACK = "boss3_attack.png"
+IMG_BOSS3_HIT = "boss3_hit.png"
+
 # Projectiles
 IMG_PROJECTILE = "projectile.png"
 IMG_BOSS_PROJECTILE = "boss_projectile.png"
+IMG_BOSS2_PROJECTILE = "boss2_projectile.png"
+IMG_BOSS3_PROJECTILE = "boss3_projectile.png"
+IMG_RIVAL_PROJECTILE = "rival_projectile.png"
 IMG_SHOCKWAVE = "shockwave.png"
 
 # UI
@@ -278,6 +344,7 @@ IMG_AMPLI = "ampli.png"
 
 # Backgrounds
 IMG_BG_MENU = "bg_menu.png"
+IMG_BG_LEVEL_CHOICE = "bg_level_choice.png"
 IMG_BG_LEVEL1 = "bg_level1.png"
 IMG_BG_LEVEL2 = "bg_level2.png"
 IMG_BG_BOSS = "bg_boss.png"

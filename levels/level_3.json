@@ -46,19 +46,27 @@
             ],
 
             "enemies": [
-                {"x": 300, "type": "rival"},
+                {"x": 300, "type": "rival_shooter"},
+                {"x": 400, "type": "hater_flying"},
                 {"x": 500, "type": "hater"},
-                {"x": 750, "type": "rival"},
+                {"x": 750, "type": "rival_shooter"},
+                {"x": 900, "type": "hater_flying"},
                 {"x": 1000, "type": "rival"},
+                {"x": 1200, "type": "hater_flying"},
                 {"x": 1400, "type": "hater"},
-                {"x": 1650, "type": "rival"},
+                {"x": 1650, "type": "rival_shooter"},
+                {"x": 1800, "type": "hater_flying"},
                 {"x": 1900, "type": "hater"},
-                {"x": 2150, "type": "rival"},
+                {"x": 2150, "type": "rival_shooter"},
+                {"x": 2300, "type": "hater_flying"},
                 {"x": 2500, "type": "rival"},
+                {"x": 2650, "type": "hater_flying"},
                 {"x": 2800, "type": "hater"},
-                {"x": 3100, "type": "rival"},
+                {"x": 3100, "type": "rival_shooter"},
+                {"x": 3250, "type": "hater_flying"},
                 {"x": 3400, "type": "hater"},
-                {"x": 3750, "type": "rival"}
+                {"x": 3600, "type": "hater_flying"},
+                {"x": 3750, "type": "rival_shooter"}
             ],
 
             "pickups": [
@@ -123,22 +131,35 @@
             ],
 
             "enemies": [
-                {"x": 250, "type": "rival"},
+                {"x": 250, "type": "rival_shooter"},
+                {"x": 350, "type": "hater_flying"},
                 {"x": 450, "type": "rival"},
+                {"x": 650, "type": "hater_flying"},
                 {"x": 850, "type": "hater"},
-                {"x": 1100, "type": "rival"},
+                {"x": 1000, "type": "hater_flying"},
+                {"x": 1100, "type": "rival_shooter"},
+                {"x": 1300, "type": "hater_flying"},
                 {"x": 1500, "type": "rival"},
+                {"x": 1650, "type": "hater_flying"},
                 {"x": 1750, "type": "hater"},
-                {"x": 2000, "type": "rival"},
+                {"x": 2000, "type": "rival_shooter"},
+                {"x": 2150, "type": "hater_flying"},
                 {"x": 2350, "type": "rival"},
+                {"x": 2550, "type": "hater_flying"},
                 {"x": 2700, "type": "hater"},
-                {"x": 3000, "type": "rival"},
+                {"x": 2850, "type": "hater_flying"},
+                {"x": 3000, "type": "rival_shooter"},
+                {"x": 3200, "type": "hater_flying"},
                 {"x": 3350, "type": "rival"},
+                {"x": 3500, "type": "hater_flying"},
                 {"x": 3650, "type": "hater"},
-                {"x": 3900, "type": "rival"},
+                {"x": 3900, "type": "rival_shooter"},
+                {"x": 4050, "type": "hater_flying"},
                 {"x": 4150, "type": "rival"},
+                {"x": 4350, "type": "hater_flying"},
                 {"x": 4500, "type": "hater"},
-                {"x": 4800, "type": "rival"}
+                {"x": 4650, "type": "hater_flying"},
+                {"x": 4800, "type": "rival_shooter"}
             ],
 
             "pickups": [
@@ -195,7 +216,7 @@
 
             "boss": {
                 "x": 1400,
-                "type": "boss"
+                "type": "boss3"
             }
         }
     ],

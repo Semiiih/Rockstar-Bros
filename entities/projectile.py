@@ -6,10 +6,11 @@ Gere les projectiles du joueur et du boss
 import pygame
 import math
 from settings import (
-    WIDTH, HEIGHT, YELLOW, RED,
+    WIDTH, HEIGHT, YELLOW, RED, ORANGE,
     PROJECTILE_SPEED, PROJECTILE_WIDTH, PROJECTILE_HEIGHT, PROJECTILE_DAMAGE,
     BOSS_PROJECTILE_SPEED, BOSS_DAMAGE,
-    IMG_FX_DIR, IMG_PROJECTILE, IMG_SHOCKWAVE,
+    RIVAL_PROJECTILE_SPEED, RIVAL_PROJECTILE_DAMAGE,
+    IMG_FX_DIR, IMG_PROJECTILE, IMG_SHOCKWAVE, IMG_RIVAL_PROJECTILE,
 )
 
 
@@ -81,6 +82,59 @@ class BossProjectile(pygame.sprite.Sprite):
         """Charge l'image shockwave avec proportions respectees"""
         try:
             path = IMG_FX_DIR / IMG_SHOCKWAVE
+            img = pygame.image.load(str(path)).convert_alpha()
+            # Garder les proportions (hauteur fixe, largeur proportionnelle)
+            original_width, original_height = img.get_size()
+            ratio = self.projectile_height / original_height
+            new_width = int(original_width * ratio)
+            self.image = pygame.transform.scale(img, (new_width, self.projectile_height))
+        except (pygame.error, FileNotFoundError):
+            pass
+
+    def _get_placeholder(self, size, color):
+        """Cree une image placeholder"""
+        surf = pygame.Surface(size, pygame.SRCALPHA)
+        pygame.draw.circle(surf, color, (size[0]//2, size[1]//2), size[0]//2)
+        return surf
+
+    def update(self, dt):
+        """Met a jour le projectile"""
+        self.rect.x += self.vel_x
+        self.rect.y += self.vel_y
+
+        # Supprime si hors ecran
+        if (self.rect.right < -50 or self.rect.left > WIDTH + 50 or
+            self.rect.bottom < -50 or self.rect.top > HEIGHT + 50):
+            self.kill()
+
+
+class RivalProjectile(pygame.sprite.Sprite):
+    """Projectile des rivals tireurs"""
+
+    def __init__(self, x, y, target_x, target_y):
+        super().__init__()
+        self.projectile_height = 30  # Hauteur cible du projectile
+        self.image = self._get_placeholder((30, 30), ORANGE)
+        self._load_image()
+        self.rect = self.image.get_rect(center=(x, y))
+
+        # Calcul direction vers la cible
+        dx = target_x - x
+        dy = target_y - y
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0:
+            self.vel_x = (dx / dist) * RIVAL_PROJECTILE_SPEED
+            self.vel_y = (dy / dist) * RIVAL_PROJECTILE_SPEED
+        else:
+            self.vel_x = -RIVAL_PROJECTILE_SPEED
+            self.vel_y = 0
+
+        self.damage = RIVAL_PROJECTILE_DAMAGE
+
+    def _load_image(self):
+        """Charge l'image projectile rival avec proportions respectees"""
+        try:
+            path = IMG_FX_DIR / IMG_RIVAL_PROJECTILE
             img = pygame.image.load(str(path)).convert_alpha()
             # Garder les proportions (hauteur fixe, largeur proportionnelle)
             original_width, original_height = img.get_size()

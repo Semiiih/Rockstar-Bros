@@ -445,7 +445,7 @@ class GameplayScene(Scene):
             if isinstance(enemy, Boss):
                 enemy.update(dt, self.player.rect, self.boss_projectiles)
             else:
-                enemy.update(dt, self.player.rect, self.platforms, normal_enemies)
+                enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.boss_projectiles)
 
         # Empecher les ennemis de se chevaucher
         self._resolve_enemy_collisions()

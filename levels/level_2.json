@@ -40,12 +40,18 @@
 
             "enemies": [
                 {"x": 350, "type": "hater"},
+                {"x": 500, "type": "hater_flying"},
                 {"x": 600, "type": "rival"},
+                {"x": 850, "type": "hater_flying"},
                 {"x": 950, "type": "hater"},
                 {"x": 1200, "type": "hater"},
+                {"x": 1400, "type": "hater_flying"},
                 {"x": 1600, "type": "rival"},
+                {"x": 1900, "type": "hater_flying"},
                 {"x": 2000, "type": "hater"},
+                {"x": 2300, "type": "hater_flying"},
                 {"x": 2400, "type": "rival"},
+                {"x": 2700, "type": "hater_flying"},
                 {"x": 2800, "type": "hater"},
                 {"x": 3100, "type": "rival"}
             ],
@@ -101,15 +107,25 @@
 
             "enemies": [
                 {"x": 300, "type": "rival"},
+                {"x": 450, "type": "hater_flying"},
                 {"x": 550, "type": "hater"},
+                {"x": 850, "type": "hater_flying"},
                 {"x": 1000, "type": "rival"},
+                {"x": 1200, "type": "hater_flying"},
                 {"x": 1350, "type": "hater"},
+                {"x": 1650, "type": "hater_flying"},
                 {"x": 1800, "type": "rival"},
+                {"x": 2000, "type": "hater_flying"},
                 {"x": 2150, "type": "rival"},
+                {"x": 2450, "type": "hater_flying"},
                 {"x": 2550, "type": "hater"},
+                {"x": 2800, "type": "hater_flying"},
                 {"x": 2950, "type": "rival"},
+                {"x": 3200, "type": "hater_flying"},
                 {"x": 3350, "type": "hater"},
+                {"x": 3600, "type": "hater_flying"},
                 {"x": 3700, "type": "rival"},
+                {"x": 4000, "type": "hater_flying"},
                 {"x": 4050, "type": "hater"},
                 {"x": 4300, "type": "rival"}
             ],
@@ -160,7 +176,7 @@
 
             "boss": {
                 "x": 1200,
-                "type": "boss"
+                "type": "boss2"
             }
         }
     ],
