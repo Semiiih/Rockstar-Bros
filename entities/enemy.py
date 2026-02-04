@@ -41,6 +41,8 @@ import math
 class Enemy(pygame.sprite.Sprite):
     """Classe de base pour les ennemis avec animations"""
 
+    _image_cache = {}  # Cache classe: {enemy_type: {key: image}}
+
     def __init__(self, x, y, enemy_type="hater"):
         super().__init__()
         self.enemy_type = enemy_type
@@ -139,6 +141,14 @@ class Enemy(pygame.sprite.Sprite):
 
     def _load_images(self):
         """Charge toutes les images d'animation de l'ennemi"""
+        # Cle de cache unique pour ce type d'ennemi
+        cache_key = self.enemy_type if self.enemy_type != "rival_shooter" else "rival_shooter"
+
+        # Utiliser le cache si disponible
+        if cache_key in Enemy._image_cache:
+            self.images = dict(Enemy._image_cache[cache_key])
+            return
+
         if self.enemy_type == "hater":
             img_files = {
                 "idle": IMG_HATER_IDLE,
@@ -176,9 +186,15 @@ class Enemy(pygame.sprite.Sprite):
                     img = pygame.transform.scale(img, (new_width, self.height))
                 else:
                     img = pygame.transform.scale(img, (self.width, self.height))
+                # Miroir de l'image attack du rival_shooter (image orientee a droite)
+                if key == "attack" and self.can_shoot:
+                    img = pygame.transform.flip(img, True, False)
                 self.images[key] = img
-            except (pygame.error, FileNotFoundError):
+            except Exception:
                 self.images[key] = None
+
+        # Mettre en cache
+        Enemy._image_cache[cache_key] = dict(self.images)
 
     def _get_placeholder(self, size, color):
         """Cree une image placeholder"""

@@ -28,6 +28,8 @@ class Projectile(pygame.sprite.Sprite):
         self.direction = direction  # 1 = droite, -1 = gauche
         self.speed = PROJECTILE_SPEED
         self.damage = int(PROJECTILE_DAMAGE * damage_multiplier)
+        self.pierce_count = 0  # Nombre d'ennemis restants a traverser (0 = detruit au 1er impact)
+        self.hit_enemies = []  # Ennemis deja touches (evite les double hits)
 
     def _load_image(self):
         """Charge l'image du projectile avec proportions respectees"""
@@ -118,13 +120,14 @@ class BossProjectile(pygame.sprite.Sprite):
         pygame.draw.circle(surf, color, (size[0]//2, size[1]//2), size[0]//2)
         return surf
 
-    def update(self, dt):
+    def update(self, dt, camera_x=0):
         """Met a jour le projectile"""
         self.rect.x += self.vel_x
         self.rect.y += self.vel_y
 
-        # Supprime si hors ecran
-        if (self.rect.right < -50 or self.rect.left > WIDTH + 50 or
+        # Supprime si hors ecran visible (relatif a la camera)
+        screen_x = self.rect.x - camera_x
+        if (screen_x < -200 or screen_x > WIDTH + 200 or
             self.rect.bottom < -50 or self.rect.top > HEIGHT + 50):
             self.kill()
 
@@ -132,10 +135,12 @@ class BossProjectile(pygame.sprite.Sprite):
 class RivalProjectile(pygame.sprite.Sprite):
     """Projectile des rivals tireurs"""
 
+    _cached_image = None  # Cache classe pour eviter de recharger depuis le disque
+
     def __init__(self, x, y, target_x, target_y):
         super().__init__()
-        self.projectile_height = 30  # Hauteur cible du projectile
-        self.image = self._get_placeholder((30, 30), ORANGE)
+        self.projectile_height = 40  # Hauteur cible du projectile
+        self.image = self._get_placeholder((40, 40), ORANGE)
         self._load_image()
         self.rect = self.image.get_rect(center=(x, y))
 
@@ -154,16 +159,23 @@ class RivalProjectile(pygame.sprite.Sprite):
 
     def _load_image(self):
         """Charge l'image projectile rival avec proportions respectees"""
+        # Utiliser le cache si disponible
+        if RivalProjectile._cached_image is not None:
+            self.image = RivalProjectile._cached_image
+            return
+
         try:
-            path = IMG_FX_DIR / IMG_RIVAL_PROJECTILE
+            path = IMG_ENEMIES_DIR / IMG_RIVAL_PROJECTILE
             img = pygame.image.load(str(path)).convert_alpha()
             # Garder les proportions (hauteur fixe, largeur proportionnelle)
             original_width, original_height = img.get_size()
             ratio = self.projectile_height / original_height
             new_width = int(original_width * ratio)
             self.image = pygame.transform.scale(img, (new_width, self.projectile_height))
-        except (pygame.error, FileNotFoundError):
-            pass
+            # Mettre en cache
+            RivalProjectile._cached_image = self.image
+        except Exception as e:
+            print(f"Impossible de charger rival_projectile.png: {e}")
 
     def _get_placeholder(self, size, color):
         """Cree une image placeholder"""
@@ -171,12 +183,13 @@ class RivalProjectile(pygame.sprite.Sprite):
         pygame.draw.circle(surf, color, (size[0]//2, size[1]//2), size[0]//2)
         return surf
 
-    def update(self, dt):
+    def update(self, dt, camera_x=0):
         """Met a jour le projectile"""
         self.rect.x += self.vel_x
         self.rect.y += self.vel_y
 
-        # Supprime si hors ecran
-        if (self.rect.right < -50 or self.rect.left > WIDTH + 50 or
+        # Supprime si hors ecran visible (relatif a la camera)
+        screen_x = self.rect.x - camera_x
+        if (screen_x < -200 or screen_x > WIDTH + 200 or
             self.rect.bottom < -50 or self.rect.top > HEIGHT + 50):
             self.kill()

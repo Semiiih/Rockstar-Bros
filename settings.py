@@ -173,7 +173,7 @@ BOSS2_WIDTH = 160
 BOSS2_HEIGHT = 200
 BOSS2_SPEED = 2.5
 BOSS2_PROJECTILE_SPEED = 9
-BOSS2_ATTACK_COOLDOWN = 1800  # ms - Plus rapide
+BOSS2_ATTACK_COOLDOWN = 2200  # ms - Plus rapide
 BOSS2_SHOCKWAVE_DAMAGE = 1
 BOSS2_SCORE = 1500
 
@@ -184,7 +184,7 @@ BOSS3_WIDTH = 180
 BOSS3_HEIGHT = 220
 BOSS3_SPEED = 3
 BOSS3_PROJECTILE_SPEED = 10
-BOSS3_ATTACK_COOLDOWN = 1500  # ms - Encore plus rapide
+BOSS3_ATTACK_COOLDOWN = 1900  # ms - Encore plus rapide
 BOSS3_SHOCKWAVE_DAMAGE = 1
 BOSS3_SCORE = 2500
 
@@ -293,7 +293,7 @@ IMG_HATER_FLYING_DEAD = "hater_flying_dead.png"
 IMG_RIVAL_IDLE = "rival_idle.png"
 IMG_RIVAL_RUN1 = "rival_run1.png"
 IMG_RIVAL_RUN2 = "rival_run2.png"
-IMG_RIVAL_ATTACK = "rival_attack.png"
+IMG_RIVAL_ATTACK = "rival_attack1.png"
 IMG_RIVAL_ATTACK2 = "rival_attack2.png"  # Attaque de tir pour rival_shooter
 IMG_RIVAL_DEAD = "rival_dead.png"
 IMG_RIVAL_HIT = "rival_hit.png"

@@ -42,6 +42,7 @@ class GameplayScene(Scene):
         self.enemies = pygame.sprite.Group()
         self.player_projectiles = pygame.sprite.Group()
         self.boss_projectiles = pygame.sprite.Group()
+        self.enemy_projectiles = pygame.sprite.Group()
         self.pickups = pygame.sprite.Group()
 
         # Entites principales
@@ -95,6 +96,7 @@ class GameplayScene(Scene):
         self.boss_death_pos = (0, 0)
         self.boss_death_alpha = 255
         self.boss_death_zoom = 1.0
+        self.boss_type_dead = None  # Type du boss qui vient de mourir
         self.target_camera_x = 0
 
         # Menu de victoire apres mort du boss
@@ -138,6 +140,7 @@ class GameplayScene(Scene):
         self.enemies.empty()
         self.player_projectiles.empty()
         self.boss_projectiles.empty()
+        self.enemy_projectiles.empty()
         self.pickups.empty()
 
         # Obtenir la position de spawn du joueur depuis le stage
@@ -183,12 +186,27 @@ class GameplayScene(Scene):
         self.victory_menu_active = False
         self.victory_menu_selected = 0
 
-        # Charger l'image de mort du boss
+        # Charger les images de mort des boss
+        self.boss_death_images = {}
         try:
             boss_death_path = IMG_ENEMIES_DIR / "boss_death.png"
-            self.boss_death_image = pygame.image.load(str(boss_death_path)).convert_alpha()
+            self.boss_death_images["boss"] = pygame.image.load(str(boss_death_path)).convert_alpha()
         except (pygame.error, FileNotFoundError):
-            self.boss_death_image = None
+            self.boss_death_images["boss"] = None
+
+        try:
+            boss2_death_path = IMG_ENEMIES_DIR / "boss2_death.png"
+            self.boss_death_images["boss2"] = pygame.image.load(str(boss2_death_path)).convert_alpha()
+        except (pygame.error, FileNotFoundError):
+            self.boss_death_images["boss2"] = None
+
+        try:
+            boss3_death_path = IMG_ENEMIES_DIR / "boss3_death.png"
+            self.boss_death_images["boss3"] = pygame.image.load(str(boss3_death_path)).convert_alpha()
+        except (pygame.error, FileNotFoundError):
+            self.boss_death_images["boss3"] = None
+
+        self.boss_death_image = None
 
         # Reset affichage des degats
         self.damage_numbers = []
@@ -444,6 +462,7 @@ class GameplayScene(Scene):
             proj.image.fill(color)
 
         proj.rect = proj.image.get_rect(center=proj.rect.center)
+        proj.pierce_count = 2  # Traverse jusqu'a 3 ennemis (1er + 2 de plus)
         self.player_projectiles.add(proj)
 
         # Afficher les degats totaux
@@ -489,7 +508,10 @@ class GameplayScene(Scene):
             proj.update(dt, self.camera_x)
 
         for proj in self.boss_projectiles:
-            proj.update(dt)
+            proj.update(dt, self.camera_x)
+
+        for proj in self.enemy_projectiles:
+            proj.update(dt, self.camera_x)
 
         for pickup in self.pickups:
             pickup.update(dt)
@@ -501,7 +523,7 @@ class GameplayScene(Scene):
             if isinstance(enemy, Boss):
                 enemy.update(dt, self.player.rect, self.boss_projectiles)
             else:
-                enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.boss_projectiles)
+                enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.enemy_projectiles)
 
         # Empecher les ennemis de se chevaucher
         self._resolve_enemy_collisions()
@@ -628,8 +650,10 @@ class GameplayScene(Scene):
         # Projectiles joueur -> Ennemis
         for proj in self.player_projectiles:
             for enemy in self.enemies:
+                # Ignorer les ennemis deja touches par ce projectile
+                if enemy in getattr(proj, 'hit_enemies', []):
+                    continue
                 if proj.rect.colliderect(enemy.rect):
-                    proj.kill()
                     is_dead = enemy.take_damage(proj.damage)
                     self.player.add_ultimate_charge(ULTIMATE_CHARGE_PER_HIT)
 
@@ -644,12 +668,28 @@ class GameplayScene(Scene):
                     if is_dead:
                         self.game.game_data["score"] += enemy.score_value
                         if isinstance(enemy, Boss):
+                            self.boss_type_dead = getattr(enemy, 'boss_type', 'boss')
+                            self.boss_death_pos = (enemy.rect.centerx, enemy.rect.centery)
                             self.boss = None
                         enemy.kill()
-                    break
+
+                    # Verifier si le projectile peut traverser
+                    if proj.pierce_count > 0:
+                        proj.pierce_count -= 1
+                        proj.hit_enemies.append(enemy)
+                    else:
+                        proj.kill()
+                        break
 
         # Projectiles boss -> Joueur
         for proj in self.boss_projectiles:
+            if proj.rect.colliderect(self.player.rect):
+                proj.kill()
+                if self.player.take_damage(proj.damage):
+                    self.game.game_data["lives"] = self.player.health
+
+        # Projectiles ennemis -> Joueur
+        for proj in self.enemy_projectiles:
             if proj.rect.colliderect(self.player.rect):
                 proj.kill()
                 if self.player.take_damage(proj.damage):
@@ -750,15 +790,13 @@ class GameplayScene(Scene):
         self.boss_death_alpha = 255
         self.boss_death_zoom = 1.0
 
-        # Position du boss pour l'animation (centre de l'ecran)
-        if self.boss:
-            self.boss_death_pos = (self.boss.rect.centerx, self.boss.rect.centery)
-            # Camera cible pour centrer sur le boss
-            self.target_camera_x = self.boss.rect.centerx - WIDTH // 2
-            self.target_camera_x = max(0, min(self.target_camera_x, self.level_width - WIDTH))
-        else:
-            self.boss_death_pos = (WIDTH // 2 + self.camera_x, HEIGHT // 2)
-            self.target_camera_x = self.camera_x
+        # Sélectionner l'image de mort appropriée selon le type de boss stocké
+        boss_type = self.boss_type_dead if self.boss_type_dead else 'boss'
+        self.boss_death_image = self.boss_death_images.get(boss_type, self.boss_death_images.get("boss"))
+
+        # Camera cible pour centrer sur le boss (position déjà stockée)
+        self.target_camera_x = self.boss_death_pos[0] - WIDTH // 2
+        self.target_camera_x = max(0, min(self.target_camera_x, self.level_width - WIDTH))
 
         # Jouer la musique de victoire
         try:
@@ -867,6 +905,10 @@ class GameplayScene(Scene):
             screen.blit(proj.image, draw_rect)
 
         for proj in self.boss_projectiles:
+            draw_rect = proj.rect.move(-self.camera_x, 0)
+            screen.blit(proj.image, draw_rect)
+
+        for proj in self.enemy_projectiles:
             draw_rect = proj.rect.move(-self.camera_x, 0)
             screen.blit(proj.image, draw_rect)
 
@@ -1057,6 +1099,10 @@ class GameplayScene(Scene):
         for proj in self.boss_projectiles:
             proj_rect = proj.rect.move(-self.camera_x, 0)
             pygame.draw.rect(screen, ORANGE, proj_rect, 2)
+
+        for proj in self.enemy_projectiles:
+            proj_rect = proj.rect.move(-self.camera_x, 0)
+            pygame.draw.rect(screen, RED, proj_rect, 2)
 
     def _draw_damage_numbers(self, screen):
         """Dessine les nombres de degats flottants"""
