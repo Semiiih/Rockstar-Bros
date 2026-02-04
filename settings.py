@@ -299,6 +299,7 @@ IMG_GROUND = "ground.png"
 # =============================================================================
 STATE_MENU = "menu"
 STATE_CHARACTER_SELECT = "character_select"
+STATE_LEVEL_SELECT = "level_select"
 STATE_GAMEPLAY = "gameplay"
 STATE_PAUSE = "pause"
 STATE_GAME_OVER = "game_over"

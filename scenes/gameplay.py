@@ -8,9 +8,10 @@ import random
 import math
 from scenes.base import Scene
 from entities import Player, Projectile, Enemy, Boss, Platform, Pickup
+from level_loader import get_loader
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, RED, GREEN, BLUE, PURPLE, ORANGE, GRAY, DARK_GRAY,
-    STATE_PAUSE, STATE_GAME_OVER, STATE_VICTORY, CONTROLS,
+    STATE_PAUSE, STATE_GAME_OVER, STATE_VICTORY, STATE_LEVEL_SELECT, CONTROLS,
     GROUND_Y,
     PLAYER_MAX_HEALTH, PLAYER_WIDTH, PLAYER_HEIGHT,
     PROJECTILE_SPEED,
@@ -22,11 +23,10 @@ from settings import (
     NOTE_SIZE, LANE_WIDTH, LANE_COUNT, TRACK_HEIGHT, TRACK_WIDTH,
     TRACK_X, TRACK_Y, HIT_LINE_Y, LANE_COLORS, LANE_KEYS,
     PICKUP_NOTE_SCORE, PICKUP_MEDIATOR_ULTIMATE,
-    LEVEL_NAMES, LEVEL_LENGTHS,
-    IMG_BG_DIR, IMG_BG_LEVEL1, IMG_BG_LEVEL2, IMG_BG_BOSS,
+    IMG_BG_DIR,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     HUD_MARGIN, HUD_HEALTH_SIZE,
-    SND_DIR, SND_MUSIC_LEVEL1, SND_MUSIC_LEVEL2, SND_MUSIC_BOSS, SND_VICTORY,
+    SND_DIR, SND_VICTORY,
 )
 
 
@@ -51,9 +51,15 @@ class GameplayScene(Scene):
         # Camera
         self.camera_x = 0
 
-        # Niveau
-        self.current_level = 1
-        self.level_width = LEVEL_LENGTHS[1]
+        # Niveau et stage
+        self.current_level_id = 1
+        self.current_stage_id = 1
+        self.level_data = None
+        self.stage_data = None
+        self.level_width = 3000
+
+        # Loader de niveaux
+        self.loader = get_loader()
 
         # Systeme ULTIME (Guitar Hero - notes qui tombent)
         self.ultimate_active = False
@@ -99,9 +105,19 @@ class GameplayScene(Scene):
             self.font = pygame.font.Font(None, 26)
             self.font_big = pygame.font.Font(None, 48)
 
-        # Recuperer les donnees du jeu
-        self.current_level = self.game.game_data["current_level"]
+        # Recuperer les donnees du jeu et du niveau/stage
+        self.current_level_id = kwargs.get('level_id', self.game.game_data.get("selected_level", 1))
+        self.current_stage_id = kwargs.get('stage_id', self.game.game_data.get("current_stage", 1))
         character_id = self.game.game_data["selected_character"]
+
+        # Charger les donnees du niveau et du stage depuis JSON
+        self.level_data = self.loader.load_level(self.current_level_id)
+        if self.level_data:
+            self.stage_data = self.loader.get_stage(self.current_level_id, self.current_stage_id)
+        else:
+            print(f"Error: Could not load level {self.current_level_id}")
+            self.game.change_scene(STATE_LEVEL_SELECT)
+            return
 
         # Reset des groupes
         self.all_sprites.empty()
@@ -111,14 +127,22 @@ class GameplayScene(Scene):
         self.boss_projectiles.empty()
         self.pickups.empty()
 
+        # Obtenir la position de spawn du joueur depuis le stage
+        spawn_x = 100
+        spawn_y = GROUND_Y
+        if self.stage_data:
+            spawn_data = self.stage_data.get('player_spawn', {})
+            spawn_x = spawn_data.get('x', 100)
+            spawn_y = spawn_data.get('y', GROUND_Y)
+
         # Creer le joueur
-        self.player = Player(character_id, 100, GROUND_Y)
+        self.player = Player(character_id, spawn_x, spawn_y)
         self.player.health = self.game.game_data["lives"]
         self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
         self.all_sprites.add(self.player)
 
-        # Charger le niveau
-        self._load_level()
+        # Charger le stage depuis la config
+        self._load_stage()
 
         # Reset camera
         self.camera_x = 0
@@ -136,193 +160,91 @@ class GameplayScene(Scene):
         self.damage_numbers = []
 
         # Jouer la musique du niveau
-        self._play_level_music()
+        self._play_stage_music()
 
-    def _play_level_music(self):
-        """Charge et joue la musique du niveau actuel"""
-        music_files = {
-            1: SND_MUSIC_LEVEL1,
-            2: SND_MUSIC_LEVEL2,
-            3: SND_MUSIC_BOSS,
-        }
+    def _play_stage_music(self):
+        """Charge et joue la musique du stage actuel"""
+        if not self.stage_data:
+            return
+
         try:
-            music_file = music_files.get(self.current_level, SND_MUSIC_LEVEL1)
-            music_path = SND_DIR / music_file
-            pygame.mixer.music.load(str(music_path))
-            pygame.mixer.music.set_volume(0.5)
-            pygame.mixer.music.play(-1)  # -1 = boucle infinie
+            music_file = self.stage_data.get('music')
+            if music_file:
+                music_path = SND_DIR / music_file
+                pygame.mixer.music.load(str(music_path))
+                pygame.mixer.music.set_volume(0.5)
+                pygame.mixer.music.play(-1)  # -1 = boucle infinie
         except (pygame.error, FileNotFoundError) as e:
-            print(f"Impossible de charger la musique du niveau: {e}")
+            print(f"Impossible de charger la musique du stage: {e}")
 
-    def _load_level(self):
-        """Charge le niveau actuel"""
-        self.level_width = LEVEL_LENGTHS.get(self.current_level, 3000)
+    def _load_stage(self):
+        """Charge le stage actuel depuis la config JSON"""
+        if not self.stage_data:
+            print("Error: No stage data")
+            return
+
+        # Obtenir la largeur du stage
+        self.level_width = self.stage_data.get('width', 3000)
+
+        # Charger le background
         self._load_background()
 
-        if self.current_level == 1:
-            self._setup_level_1()
-        elif self.current_level == 2:
-            self._setup_level_2()
-        elif self.current_level == 3:
-            self._setup_level_3()
+        # Charger les segments de sol
+        for segment in self.stage_data.get('ground_segments', []):
+            x = segment.get('x', 0)
+            y = segment.get('y', GROUND_Y)
+            width = segment.get('width', 1000)
+            height = HEIGHT - y + 100
+            ground = Platform(x, y, width, height, is_ground=True)
+            self.platforms.add(ground)
+
+        # Charger les plateformes
+        for plat_data in self.stage_data.get('platforms', []):
+            x = plat_data.get('x', 0)
+            y = plat_data.get('y', 400)
+            width = plat_data.get('width', 150)
+            height = plat_data.get('height', 30)
+            plat = Platform(x, y, width, height)
+            self.platforms.add(plat)
+
+        # Charger les ennemis
+        for enemy_data in self.stage_data.get('enemies', []):
+            x = enemy_data.get('x', 0)
+            etype = enemy_data.get('type', 'hater')
+            y = GROUND_Y  # Les ennemis spawns sur le sol par defaut
+            enemy = Enemy(x, y, etype)
+            self.enemies.add(enemy)
+
+        # Charger les pickups
+        for pickup_data in self.stage_data.get('pickups', []):
+            x = pickup_data.get('x', 0)
+            y = pickup_data.get('y', 400)
+            ptype = pickup_data.get('type', 'note')
+            pickup = Pickup(x, y, ptype)
+            self.pickups.add(pickup)
+
+        # Charger le boss si c'est un stage de boss
+        boss_data = self.stage_data.get('boss')
+        if boss_data:
+            boss_x = boss_data.get('x', WIDTH - 200)
+            self.boss = Boss(boss_x, GROUND_Y)
+            self.enemies.add(self.boss)
 
     def _load_background(self):
-        """Charge le background du niveau"""
-        bg_files = {
-            1: IMG_BG_LEVEL1,
-            2: IMG_BG_LEVEL2,
-            3: IMG_BG_BOSS,
-        }
+        """Charge le background du stage"""
+        if not self.stage_data:
+            return
+
         try:
-            path = IMG_BG_DIR / bg_files.get(self.current_level, IMG_BG_LEVEL1)
-            self.background = pygame.image.load(str(path)).convert()
-            self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
-        except (pygame.error, FileNotFoundError):
+            bg_file = self.stage_data.get('background')
+            if bg_file:
+                path = IMG_BG_DIR / bg_file
+                self.background = pygame.image.load(str(path)).convert()
+                self.background = pygame.transform.scale(self.background, (WIDTH, HEIGHT))
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Could not load background: {e}")
             self.background = None
 
-    def _setup_level_1(self):
-        """Configure le niveau 1 - Coulisses (tutoriel)"""
-        # Sol avec quelques trous (tutoriel)
-        ground_segments = [
-            (0, GROUND_Y, 700),      # Debut
-            (800, GROUND_Y, 500),    # Apres premier trou
-            (1400, GROUND_Y, 600),   # Milieu
-            (2100, GROUND_Y, 900),   # Fin
-        ]
-        for x, y, w in ground_segments:
-            ground = Platform(x, y, w, HEIGHT - GROUND_Y + 100, is_ground=True)
-            self.platforms.add(ground)
-
-        # Plateformes (incluant celles au-dessus des trous)
-        platform_positions = [
-            (300, 520, 200, 30),
-            (600, 450, 150, 30),
-            (720, 550, 100, 30),   # Au-dessus du trou 1
-            (900, 380, 180, 30),
-            (1200, 480, 200, 30),
-            (1320, 550, 100, 30),  # Au-dessus du trou 2
-            (1600, 400, 150, 30),
-            (2000, 550, 120, 30),  # Au-dessus du trou 3
-            (2400, 450, 180, 30),
-            (2700, 520, 150, 30),
-        ]
-        for x, y, w, h in platform_positions:
-            plat = Platform(x, y, w, h)
-            self.platforms.add(plat)
-
-        # Ennemis (Haters uniquement)
-        enemy_positions = [
-            (500, GROUND_Y, "hater"),
-            (800, GROUND_Y, "hater"),
-            (1100, GROUND_Y, "hater"),
-            (1500, GROUND_Y, "hater"),
-            (1900, GROUND_Y, "hater"),
-            (2300, GROUND_Y, "hater"),
-        ]
-        for x, y, etype in enemy_positions:
-            enemy = Enemy(x, y, etype)
-            self.enemies.add(enemy)
-
-        # Pickups
-        pickup_positions = [
-            (400, 480, "note"),
-            (700, 410, "note"),
-            (1000, 340, "mediator"),
-            (1400, 440, "note"),
-            (1800, 360, "note"),
-            (2200, 400, "mediator"),
-        ]
-        for x, y, ptype in pickup_positions:
-            pickup = Pickup(x, y, ptype)
-            self.pickups.add(pickup)
-
-    def _setup_level_2(self):
-        """Configure le niveau 2 - Scene (challenge)"""
-        # Sol avec trous
-        ground_segments = [
-            (0, GROUND_Y, 800),
-            (1000, GROUND_Y, 600),
-            (1800, GROUND_Y, 800),
-            (2800, GROUND_Y, 1200),
-        ]
-        for x, y, w in ground_segments:
-            ground = Platform(x, y, w, HEIGHT - GROUND_Y + 100, is_ground=True)
-            self.platforms.add(ground)
-
-        # Plateformes (plus vertical)
-        platform_positions = [
-            (300, 500, 150, 30),
-            (500, 400, 120, 30),
-            (700, 300, 150, 30),
-            (850, 450, 100, 30),  # Au-dessus du trou
-            (950, 550, 80, 30),
-            (1100, 480, 150, 30),
-            (1400, 380, 120, 30),
-            (1600, 280, 150, 30),
-            (1700, 450, 100, 30),
-            (2000, 500, 200, 30),
-            (2400, 400, 150, 30),
-            (2700, 300, 180, 30),
-            (3000, 450, 150, 30),
-            (3400, 380, 200, 30),
-        ]
-        for x, y, w, h in platform_positions:
-            plat = Platform(x, y, w, h)
-            self.platforms.add(plat)
-
-        # Ennemis (Haters et Rivals)
-        enemy_positions = [
-            (400, GROUND_Y, "hater"),
-            (600, GROUND_Y, "hater"),
-            (1200, GROUND_Y, "rival"),
-            (1500, GROUND_Y, "hater"),
-            (2100, GROUND_Y, "rival"),
-            (2500, GROUND_Y, "hater"),
-            (2900, GROUND_Y, "rival"),
-            (3200, GROUND_Y, "hater"),
-            (3600, GROUND_Y, "rival"),
-        ]
-        for x, y, etype in enemy_positions:
-            enemy = Enemy(x, y, etype)
-            self.enemies.add(enemy)
-
-        # Pickups
-        pickup_positions = [
-            (350, 460, "note"),
-            (550, 360, "note"),
-            (750, 260, "mediator"),
-            (1150, 440, "note"),
-            (1450, 340, "ampli"),
-            (1650, 240, "note"),
-            (2050, 460, "note"),
-            (2450, 360, "mediator"),
-            (2750, 260, "note"),
-            (3050, 410, "ampli"),
-            (3450, 340, "note"),
-        ]
-        for x, y, ptype in pickup_positions:
-            pickup = Pickup(x, y, ptype)
-            self.pickups.add(pickup)
-
-    def _setup_level_3(self):
-        """Configure le niveau 3 - Boss Arena"""
-        # Sol de l'arene
-        ground = Platform(0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y + 100, is_ground=True)
-        self.platforms.add(ground)
-
-        # Quelques plateformes pour esquiver
-        platform_positions = [
-            (200, 500, 150, 30),
-            (WIDTH - 350, 500, 150, 30),
-            (WIDTH // 2 - 75, 400, 150, 30),
-        ]
-        for x, y, w, h in platform_positions:
-            plat = Platform(x, y, w, h)
-            self.platforms.add(plat)
-
-        # Boss
-        self.boss = Boss(WIDTH - 200, GROUND_Y)
-        self.enemies.add(self.boss)
 
     def handle_event(self, event):
         """Gere les evenements"""
@@ -336,7 +258,7 @@ class GameplayScene(Scene):
             if event.key in CONTROLS["debug_hitbox"]:
                 self.debug_hitboxes = not self.debug_hitboxes
             if event.key in CONTROLS["debug_skip"]:
-                self._complete_level()
+                self._complete_stage()
             if event.key in CONTROLS["debug_invincible"]:
                 self.player.debug_invincible = not self.player.debug_invincible
 
@@ -741,18 +663,21 @@ class GameplayScene(Scene):
         self.camera_x += (target_x - self.camera_x) * 0.1
 
     def _check_level_end(self):
-        """Verifie si le niveau est termine"""
+        """Verifie si le stage est termine"""
         if self.celebration_active:
             return  # Deja en celebration
 
-        if self.current_level == 3:
-            # Niveau boss - victoire si boss mort
+        # Verifier si c'est un stage de boss
+        is_boss_stage = self.stage_data and self.stage_data.get('is_boss_stage', False)
+
+        if is_boss_stage:
+            # Stage boss - victoire si boss mort
             if self.boss is None or self.boss not in self.enemies:
                 self._start_celebration()
         else:
-            # Autres niveaux - atteindre la fin
+            # Stages normaux - atteindre la fin
             if self.player.rect.right >= self.level_width - 50:
-                self._complete_level()
+                self._complete_stage()
 
     def _start_celebration(self):
         """Demarre l'animation de celebration apres avoir battu le boss"""
@@ -806,20 +731,36 @@ class GameplayScene(Scene):
 
         # Apres 7 secondes, passer a l'ecran de victoire
         if self.celebration_timer >= 7000:
-            self._complete_level()
+            self._complete_stage()
 
-    def _complete_level(self):
-        """Complete le niveau actuel"""
-        # Sauvegarder l'etat du joueur avant de changer de niveau
+    def _complete_stage(self):
+        """Complete le stage actuel et passe au suivant ou au niveau suivant"""
+        # Sauvegarder l'etat du joueur
         self.game.game_data["lives"] = self.player.health
         self.game.game_data["ultimate_charge"] = self.player.ultimate_charge
 
-        if self.current_level < 3:
-            # Passer au niveau suivant
-            self.game.game_data["current_level"] += 1
-            self.enter()
+        # Obtenir le nombre total de stages dans ce niveau
+        total_stages = len(self.level_data.get('stages', [])) if self.level_data else 3
+
+        if self.current_stage_id < total_stages:
+            # Passer au stage suivant du meme niveau
+            self.current_stage_id += 1
+            self.game.game_data["current_stage"] = self.current_stage_id
+            self.enter(level_id=self.current_level_id, stage_id=self.current_stage_id)
         else:
-            # Victoire!
+            # Niveau complete! Marquer comme complete et calculer les etoiles
+            if self.current_level_id not in self.game.game_data["completed_levels"]:
+                self.game.game_data["completed_levels"].append(self.current_level_id)
+
+            # Calculer les etoiles basees sur le score
+            score = self.game.game_data.get("score", 0)
+            stars = self.loader.get_stars_count(self.current_level_id, score)
+            self.game.game_data["level_stars"][self.current_level_id] = max(
+                stars,
+                self.game.game_data["level_stars"].get(self.current_level_id, 0)
+            )
+
+            # Aller a l'ecran de victoire
             self.game.change_scene(STATE_VICTORY)
 
     def draw(self, screen):
@@ -951,7 +892,7 @@ class GameplayScene(Scene):
             2: ((50, 40, 30), (80, 60, 40)),   # Scene - marron/orange
             3: ((60, 20, 30), (90, 30, 40)),   # Boss - rouge sombre
         }
-        c1, c2 = colors.get(self.current_level, ((30, 30, 40), (50, 50, 60)))
+        c1, c2 = colors.get(self.current_level_id, ((30, 30, 40), (50, 50, 60)))
 
         for y in range(HEIGHT):
             ratio = y / HEIGHT
@@ -1049,10 +990,12 @@ class GameplayScene(Scene):
             combo_text = self.font_big.render(f"x{self.combo}", True, YELLOW)
             screen.blit(combo_text, (WIDTH - 100, HUD_MARGIN + 30))
 
-        # Niveau
-        level_name = LEVEL_NAMES[self.current_level - 1]
-        level_text = self.font.render(f"Niveau {self.current_level}: {level_name}", True, WHITE)
-        screen.blit(level_text, (WIDTH // 2 - level_text.get_width() // 2, HUD_MARGIN))
+        # Niveau et stage
+        if self.level_data and self.stage_data:
+            level_name = self.level_data.get('name', 'Unknown')
+            stage_name = self.stage_data.get('name', f'Stage {self.current_stage_id}')
+            level_text = self.font.render(f"{level_name} - {stage_name}", True, WHITE)
+            screen.blit(level_text, (WIDTH // 2 - level_text.get_width() // 2, HUD_MARGIN))
 
         # Jauge ultime
         ult_bar_width = 150
