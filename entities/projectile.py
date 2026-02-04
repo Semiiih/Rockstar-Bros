@@ -6,11 +6,14 @@ Gere les projectiles du joueur et du boss
 import pygame
 import math
 from settings import (
-    WIDTH, HEIGHT, YELLOW, RED, ORANGE,
+    WIDTH, HEIGHT, YELLOW, RED, ORANGE, PURPLE,
     PROJECTILE_SPEED, PROJECTILE_WIDTH, PROJECTILE_HEIGHT, PROJECTILE_DAMAGE,
-    BOSS_PROJECTILE_SPEED, BOSS_DAMAGE,
+    BOSS_PROJECTILE_SPEED, BOSS_DAMAGE, BOSS_SHOCKWAVE_DAMAGE,
+    BOSS2_PROJECTILE_SPEED, BOSS2_DAMAGE, BOSS2_SHOCKWAVE_DAMAGE,
+    BOSS3_PROJECTILE_SPEED, BOSS3_DAMAGE, BOSS3_SHOCKWAVE_DAMAGE,
     RIVAL_PROJECTILE_SPEED, RIVAL_PROJECTILE_DAMAGE,
     IMG_FX_DIR, IMG_PROJECTILE, IMG_SHOCKWAVE, IMG_RIVAL_PROJECTILE,
+    IMG_ENEMIES_DIR, IMG_BOSS_PROJECTILE, IMG_BOSS2_PROJECTILE, IMG_BOSS3_PROJECTILE,
 )
 
 
@@ -56,12 +59,32 @@ class Projectile(pygame.sprite.Sprite):
 
 
 class BossProjectile(pygame.sprite.Sprite):
-    """Projectile du boss (shockwave)"""
+    """Projectile du boss - supporte les 3 types de boss"""
 
-    def __init__(self, x, y, target_x, target_y):
+    def __init__(self, x, y, target_x, target_y, boss_type="boss"):
         super().__init__()
+        self.boss_type = boss_type
         self.projectile_height = 40  # Hauteur cible du projectile
-        self.image = self._get_placeholder((40, 40), RED)
+
+        # Config selon le type de boss
+        if boss_type == "boss2":
+            self.speed = BOSS2_PROJECTILE_SPEED
+            self.damage = BOSS2_SHOCKWAVE_DAMAGE
+            self.color = PURPLE
+            self.img_file = IMG_BOSS2_PROJECTILE
+        elif boss_type == "boss3":
+            self.speed = BOSS3_PROJECTILE_SPEED
+            self.damage = BOSS3_SHOCKWAVE_DAMAGE
+            self.color = ORANGE
+            self.img_file = IMG_BOSS3_PROJECTILE
+            self.projectile_height = 50  # Plus gros pour boss3
+        else:  # boss1
+            self.speed = BOSS_PROJECTILE_SPEED
+            self.damage = BOSS_SHOCKWAVE_DAMAGE
+            self.color = RED
+            self.img_file = IMG_BOSS_PROJECTILE
+
+        self.image = self._get_placeholder((self.projectile_height, self.projectile_height), self.color)
         self._load_image()
         self.rect = self.image.get_rect(center=(x, y))
 
@@ -70,18 +93,16 @@ class BossProjectile(pygame.sprite.Sprite):
         dy = target_y - y
         dist = math.sqrt(dx * dx + dy * dy)
         if dist > 0:
-            self.vel_x = (dx / dist) * BOSS_PROJECTILE_SPEED
-            self.vel_y = (dy / dist) * BOSS_PROJECTILE_SPEED
+            self.vel_x = (dx / dist) * self.speed
+            self.vel_y = (dy / dist) * self.speed
         else:
-            self.vel_x = -BOSS_PROJECTILE_SPEED
+            self.vel_x = -self.speed
             self.vel_y = 0
 
-        self.damage = BOSS_DAMAGE
-
     def _load_image(self):
-        """Charge l'image shockwave avec proportions respectees"""
+        """Charge l'image du projectile du boss"""
         try:
-            path = IMG_FX_DIR / IMG_SHOCKWAVE
+            path = IMG_ENEMIES_DIR / self.img_file
             img = pygame.image.load(str(path)).convert_alpha()
             # Garder les proportions (hauteur fixe, largeur proportionnelle)
             original_width, original_height = img.get_size()

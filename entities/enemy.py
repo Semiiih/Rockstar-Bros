@@ -85,9 +85,9 @@ class Enemy(pygame.sprite.Sprite):
             self.can_shoot = (enemy_type == "rival_shooter")
             # Attributs pour tirer
             if self.can_shoot:
-                self.detection_range = 700  # Portée augmentée pour les tireurs (700px au lieu de 400px)
+                self.detection_range = 800  # Grande portée pour les tireurs (800px)
                 self.shoot_cooldown = RIVAL_SHOOT_COOLDOWN
-                self.shoot_timer = 1000  # Premier tir apres 1 seconde
+                self.shoot_timer = 1500  # Premier tir apres 1.5 seconde (laisse le temps au joueur)
                 self.shoot_anim_timer = 0  # Timer pour l'animation de tir
             else:
                 self.detection_range = RIVAL_DETECTION_RANGE
@@ -229,7 +229,7 @@ class Enemy(pygame.sprite.Sprite):
             self.hit_flash -= dt_ms
 
         # Gestion du tir pour les rivals tireurs
-        if self.can_shoot and projectile_group:
+        if self.can_shoot and projectile_group is not None:
             # Decrémenter le timer d'animation de tir
             if self.shoot_anim_timer > 0:
                 self.shoot_anim_timer -= dt_ms
@@ -247,10 +247,11 @@ class Enemy(pygame.sprite.Sprite):
                         player_rect.centery
                     )
                     projectile_group.add(proj)
-                    self.shoot_timer = self.shoot_cooldown
                     # Activer l'animation de tir
                     self.shoot_anim_timer = 400  # Animation pendant 400ms
                     self.state = "attack"
+                # Reset le timer meme si hors portee pour eviter accumulation negative
+                self.shoot_timer = self.shoot_cooldown
 
         # Physique differente pour les volants
         if self.can_fly:
@@ -315,52 +316,55 @@ class Enemy(pygame.sprite.Sprite):
         if self.on_ground:
             dist_to_player_x = abs(self.rect.centerx - player_rect.centerx)
 
-            # Les rivals tireurs restent immobiles, ils regardent juste le joueur
+            # Les rivals tireurs (rival_shooter) restent IMMOBILES et tirent
             if self.can_shoot:
-                # Ne bouge pas, mais regarde le joueur
+                # Ne bouge JAMAIS, regarde juste le joueur
                 self.facing_right = player_rect.centerx > self.rect.centerx
-                self.state = "idle"
-            elif dist_to_player_x < self.detection_range:
-                # Zone morte: si le joueur est trop proche horizontalement, ne pas bouger
-                # Evite l'effet "toupie" quand le joueur est au-dessus
-                if dist_to_player_x > 25:
-                    # Poursuit le joueur (sauf si bloque par un autre ennemi)
-                    if player_rect.centerx < self.rect.centerx:
-                        if not blocked_left:
-                            self.rect.x -= self.speed
-                            is_moving = True
-                        self.facing_right = False
+                # L'état est géré par le tir (shoot_anim_timer)
+                if self.shoot_anim_timer <= 0:
+                    self.state = "idle"
+            else:
+                # Tous les autres ennemis (hater, hater_flying, rival) BOUGENT et FRAPPENT
+                if dist_to_player_x < self.detection_range:
+                    # Zone morte: si le joueur est trop proche horizontalement, ne pas bouger
+                    # Evite l'effet "toupie" quand le joueur est au-dessus
+                    if dist_to_player_x > 25:
+                        # Poursuit le joueur (sauf si bloque par un autre ennemi)
+                        if player_rect.centerx < self.rect.centerx:
+                            if not blocked_left:
+                                self.rect.x -= self.speed
+                                is_moving = True
+                            self.facing_right = False
+                        else:
+                            if not blocked_right:
+                                self.rect.x += self.speed
+                                is_moving = True
+                            self.facing_right = True
+                        if is_moving:
+                            self.state = "run"
                     else:
-                        if not blocked_right:
-                            self.rect.x += self.speed
-                            is_moving = True
-                        self.facing_right = True
+                        # Trop proche horizontalement, s'arreter et regarder le joueur
+                        self.facing_right = player_rect.centerx > self.rect.centerx
+                        self.state = "idle"
+
+                    # Attaque au corps a corps si tres proche
+                    if dist_to_player_x < 80:
+                        self.state = "attack"
+                else:
+                    # Patrouille (sauf si bloque)
+                    move_dir = self.speed * self.patrol_direction
+                    can_move = (move_dir < 0 and not blocked_left) or (move_dir > 0 and not blocked_right)
+                    if can_move:
+                        self.rect.x += move_dir
+                        is_moving = True
+                    if abs(self.rect.x - self.start_x) > self.patrol_distance:
+                        self.patrol_direction *= -1
+                        self.facing_right = self.patrol_direction > 0
                     if is_moving:
                         self.state = "run"
-                else:
-                    # Trop proche horizontalement, s'arreter et regarder le joueur
-                    self.facing_right = player_rect.centerx > self.rect.centerx
-                    self.state = "idle"
-
-                # Attaque si tres proche (seulement pour les non-tireurs)
-                if dist_to_player_x < 80:
-                    self.state = "attack"
-            else:
-                # Patrouille (sauf si bloque)
-                move_dir = self.speed * self.patrol_direction
-                can_move = (move_dir < 0 and not blocked_left) or (move_dir > 0 and not blocked_right)
-                if can_move:
-                    self.rect.x += move_dir
-                    is_moving = True
-                if abs(self.rect.x - self.start_x) > self.patrol_distance:
-                    self.patrol_direction *= -1
-                    self.facing_right = self.patrol_direction > 0
-                if is_moving:
-                    self.state = "run"
+                    else:
+                        self.state = "idle"
         else:
-            self.state = "idle"
-
-        if not is_moving and not self.can_shoot:
             self.state = "idle"
 
         # Animation de course
@@ -387,7 +391,8 @@ class Enemy(pygame.sprite.Sprite):
     def draw(self, screen, camera_x):
         """Dessine l'ennemi avec effets"""
         img = self.image
-        if not self.facing_right:
+        # L'image de base regarde a gauche, donc flip si regarde a droite
+        if self.facing_right:
             img = pygame.transform.flip(img, True, False)
 
         draw_rect = self.rect.move(-camera_x, 0)
@@ -614,20 +619,167 @@ class Boss(pygame.sprite.Sprite):
         self.image = self._get_current_image()
 
     def _perform_attack(self, player_rect, projectiles_group):
-        """Execute une attaque"""
+        """Execute une attaque selon le type de boss"""
         self.attack_anim_timer = 400  # Animation d'attaque pendant 400ms
 
-        attack_type = random.choice(["projectile", "projectile", "shockwave"])
+        if self.boss_type == "boss3":
+            # Boss 3: Attaques en rafale et en eventail
+            self._attack_boss3(player_rect, projectiles_group)
+        elif self.boss_type == "boss2":
+            # Boss 2: Attaques en cercle et vagues
+            self._attack_boss2(player_rect, projectiles_group)
+        else:
+            # Boss 1: Attaques simples directes
+            self._attack_boss1(player_rect, projectiles_group)
 
-        if attack_type == "projectile":
-            num_projectiles = self.phase
-            for i in range(num_projectiles):
-                offset_y = (i - num_projectiles // 2) * 30
+    def _attack_boss1(self, player_rect, projectiles_group):
+        """Attaques du Boss 1 - Simples et directes"""
+        attack_type = random.choice(["single", "double", "triple"])
+
+        if attack_type == "single":
+            # Tir simple vers le joueur
+            proj = BossProjectile(
+                self.rect.centerx,
+                self.rect.centery,
+                player_rect.centerx,
+                player_rect.centery,
+                self.boss_type
+            )
+            projectiles_group.add(proj)
+        elif attack_type == "double":
+            # Deux tirs paralleles
+            for offset_y in [-30, 30]:
                 proj = BossProjectile(
                     self.rect.centerx,
                     self.rect.centery + offset_y,
                     player_rect.centerx,
-                    player_rect.centery
+                    player_rect.centery + offset_y,
+                    self.boss_type
+                )
+                projectiles_group.add(proj)
+        else:  # triple
+            # Trois tirs en ligne
+            for offset_y in [-40, 0, 40]:
+                proj = BossProjectile(
+                    self.rect.centerx,
+                    self.rect.centery + offset_y,
+                    player_rect.centerx,
+                    player_rect.centery,
+                    self.boss_type
+                )
+                projectiles_group.add(proj)
+
+    def _attack_boss2(self, player_rect, projectiles_group):
+        """Attaques du Boss 2 - En cercle et vagues"""
+        attack_type = random.choice(["spread", "circle", "wave"])
+
+        if attack_type == "spread":
+            # Tir en eventail (3 directions)
+            angles = [-30, 0, 30]
+            for angle in angles:
+                rad = math.radians(angle)
+                dx = player_rect.centerx - self.rect.centerx
+                dy = player_rect.centery - self.rect.centery
+                # Rotation du vecteur
+                new_dx = dx * math.cos(rad) - dy * math.sin(rad)
+                new_dy = dx * math.sin(rad) + dy * math.cos(rad)
+                target_x = self.rect.centerx + new_dx
+                target_y = self.rect.centery + new_dy
+                proj = BossProjectile(
+                    self.rect.centerx,
+                    self.rect.centery,
+                    target_x,
+                    target_y,
+                    self.boss_type
+                )
+                projectiles_group.add(proj)
+        elif attack_type == "circle":
+            # Tir en cercle
+            num_projectiles = 6 + self.phase * 2
+            for i in range(num_projectiles):
+                angle = (360 / num_projectiles) * i
+                rad = math.radians(angle)
+                target_x = self.rect.centerx + math.cos(rad) * 100
+                target_y = self.rect.centery + math.sin(rad) * 100
+                proj = BossProjectile(
+                    self.rect.centerx,
+                    self.rect.centery,
+                    target_x,
+                    target_y,
+                    self.boss_type
+                )
+                projectiles_group.add(proj)
+        else:  # wave
+            # Vague de tirs horizontaux
+            num = 3 + self.phase
+            for i in range(num):
+                offset_y = (i - num // 2) * 40
+                proj = BossProjectile(
+                    self.rect.centerx,
+                    self.rect.centery + offset_y,
+                    self.rect.centerx - 500,
+                    self.rect.centery + offset_y,
+                    self.boss_type
+                )
+                projectiles_group.add(proj)
+
+    def _attack_boss3(self, player_rect, projectiles_group):
+        """Attaques du Boss 3 - Rafales et patterns complexes"""
+        attack_type = random.choice(["burst", "spiral", "rain", "cross"])
+
+        if attack_type == "burst":
+            # Rafale rapide vers le joueur
+            num = 4 + self.phase
+            for i in range(num):
+                offset_x = random.randint(-20, 20)
+                offset_y = random.randint(-30, 30)
+                proj = BossProjectile(
+                    self.rect.centerx + offset_x,
+                    self.rect.centery + offset_y,
+                    player_rect.centerx + random.randint(-50, 50),
+                    player_rect.centery + random.randint(-30, 30),
+                    self.boss_type
+                )
+                projectiles_group.add(proj)
+        elif attack_type == "spiral":
+            # Spirale de projectiles
+            num = 8 + self.phase * 2
+            for i in range(num):
+                angle = (360 / num) * i + random.randint(-10, 10)
+                rad = math.radians(angle)
+                target_x = self.rect.centerx + math.cos(rad) * 150
+                target_y = self.rect.centery + math.sin(rad) * 150
+                proj = BossProjectile(
+                    self.rect.centerx,
+                    self.rect.centery,
+                    target_x,
+                    target_y,
+                    self.boss_type
+                )
+                projectiles_group.add(proj)
+        elif attack_type == "rain":
+            # Pluie de projectiles d'en haut
+            num = 5 + self.phase
+            for i in range(num):
+                start_x = self.rect.centerx - 200 + i * 80
+                proj = BossProjectile(
+                    start_x,
+                    self.rect.top - 50,
+                    start_x + random.randint(-30, 30),
+                    self.rect.centery + 300,
+                    self.boss_type
+                )
+                projectiles_group.add(proj)
+        else:  # cross
+            # Pattern en croix
+            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)]
+            for dx, dy in directions:
+                proj = BossProjectile(
+                    self.rect.centerx,
+                    self.rect.centery,
+                    self.rect.centerx + dx * 200,
+                    self.rect.centery + dy * 200,
+                    self.boss_type
                 )
                 projectiles_group.add(proj)
 
