@@ -1,19 +1,19 @@
 """
 Rockstar Bros - Classe Pickup
-Gere les collectibles (note, mediator, ampli)
+Gere les collectibles (note, mediator, ampli, health)
 """
 
 import pygame
 import math
 from settings import (
-    YELLOW, PURPLE, GREEN,
+    YELLOW, PURPLE, GREEN, RED,
     PICKUP_WIDTH, PICKUP_HEIGHT,
-    IMG_UI_DIR, IMG_NOTE, IMG_MEDIATOR, IMG_AMPLI,
+    IMG_UI_DIR, IMG_NOTE, IMG_MEDIATOR, IMG_AMPLI, IMG_HEALTH,
 )
 
 
 class Pickup(pygame.sprite.Sprite):
-    """Collectible (note, mediator, ampli)"""
+    """Collectible (note, mediator, ampli, health)"""
 
     def __init__(self, x, y, pickup_type="note"):
         super().__init__()
@@ -24,6 +24,8 @@ class Pickup(pygame.sprite.Sprite):
             color = YELLOW
         elif pickup_type == "mediator":
             color = PURPLE
+        elif pickup_type == "health":
+            color = RED
         else:  # ampli
             color = GREEN
 
@@ -42,6 +44,7 @@ class Pickup(pygame.sprite.Sprite):
             "note": IMG_NOTE,
             "mediator": IMG_MEDIATOR,
             "ampli": IMG_AMPLI,
+            "health": IMG_HEALTH,
         }
         try:
             path = IMG_UI_DIR / img_map.get(self.pickup_type, IMG_NOTE)
@@ -57,6 +60,24 @@ class Pickup(pygame.sprite.Sprite):
             # Forme de note de musique
             pygame.draw.circle(surf, color, (size[0]//3, size[1]*2//3), size[0]//3)
             pygame.draw.line(surf, color, (size[0]//2, size[1]*2//3), (size[0]//2, 5), 3)
+        elif self.pickup_type == "health":
+            # Meme style de coeur que le HUD (deux cercles + triangle)
+            # Taille reduite pour le pickup (70% de la taille)
+            w, h = size
+            scale = 0.7
+            offset_x = int(w * (1 - scale) / 2)
+            offset_y = int(h * (1 - scale) / 2)
+            sw, sh = int(w * scale), int(h * scale)
+            # Deux cercles en haut
+            radius = sw // 4
+            pygame.draw.circle(surf, color, (offset_x + sw // 4 + 2, offset_y + sh // 3), radius)
+            pygame.draw.circle(surf, color, (offset_x + sw * 3 // 4 - 2, offset_y + sh // 3), radius)
+            # Triangle en bas
+            pygame.draw.polygon(surf, color, [
+                (offset_x, offset_y + sh // 3 + 2),
+                (offset_x + sw, offset_y + sh // 3 + 2),
+                (offset_x + sw // 2, offset_y + sh - 2)
+            ])
         else:
             pygame.draw.rect(surf, color, (0, 0, size[0], size[1]), border_radius=5)
         return surf
