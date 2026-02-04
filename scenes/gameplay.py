@@ -11,7 +11,7 @@ from entities import Player, Projectile, Enemy, Boss, Platform, Pickup
 from level_loader import get_loader
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, RED, GREEN, BLUE, PURPLE, ORANGE, GRAY, DARK_GRAY,
-    STATE_PAUSE, STATE_GAME_OVER, STATE_VICTORY, STATE_LEVEL_SELECT, CONTROLS,
+    STATE_PAUSE, STATE_GAME_OVER, STATE_VICTORY, STATE_LEVEL_SELECT, STATE_MENU, CONTROLS,
     GROUND_Y,
     PLAYER_MAX_HEALTH, PLAYER_WIDTH, PLAYER_HEIGHT,
     PROJECTILE_SPEED,
@@ -23,7 +23,7 @@ from settings import (
     NOTE_SIZE, LANE_WIDTH, LANE_COUNT, TRACK_HEIGHT, TRACK_WIDTH,
     TRACK_X, TRACK_Y, HIT_LINE_Y, LANE_COLORS, LANE_KEYS,
     PICKUP_NOTE_SCORE, PICKUP_MEDIATOR_ULTIMATE,
-    IMG_BG_DIR,
+    IMG_BG_DIR, IMG_ENEMIES_DIR,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     HUD_MARGIN, HUD_HEALTH_SIZE,
     SND_DIR, SND_VICTORY,
@@ -87,7 +87,20 @@ class GameplayScene(Scene):
         # Celebration (apres avoir battu le boss)
         self.celebration_active = False
         self.celebration_timer = 0
-        self.celebration_particles = []
+
+        # Animation de mort du boss
+        self.boss_death_active = False
+        self.boss_death_timer = 0
+        self.boss_death_image = None
+        self.boss_death_pos = (0, 0)
+        self.boss_death_alpha = 255
+        self.boss_death_zoom = 1.0
+        self.target_camera_x = 0
+
+        # Menu de victoire apres mort du boss
+        self.victory_menu_active = False
+        self.victory_menu_selected = 0
+        self.victory_menu_options = ["Continuer", "Retour"]
 
         # Affichage des degats
         self.damage_numbers = []  # Liste: {"x", "y", "damage", "timer", "color"}
@@ -154,7 +167,21 @@ class GameplayScene(Scene):
         # Reset celebration
         self.celebration_active = False
         self.celebration_timer = 0
-        self.celebration_particles = []
+
+        # Reset boss death animation
+        self.boss_death_active = False
+        self.boss_death_timer = 0
+        self.boss_death_alpha = 255
+        self.boss_death_zoom = 1.0
+        self.victory_menu_active = False
+        self.victory_menu_selected = 0
+
+        # Charger l'image de mort du boss
+        try:
+            boss_death_path = IMG_ENEMIES_DIR / "boss_death.png"
+            self.boss_death_image = pygame.image.load(str(boss_death_path)).convert_alpha()
+        except (pygame.error, FileNotFoundError):
+            self.boss_death_image = None
 
         # Reset affichage des degats
         self.damage_numbers = []
@@ -249,8 +276,21 @@ class GameplayScene(Scene):
     def handle_event(self, event):
         """Gere les evenements"""
         if event.type == pygame.KEYDOWN:
-            # Pause (pas pendant l'ultime)
-            if event.key in CONTROLS["pause"] and not self.ultimate_active:
+            # Menu de victoire apres mort du boss
+            if self.victory_menu_active:
+                if event.key == pygame.K_UP:
+                    self.victory_menu_selected = (self.victory_menu_selected - 1) % len(self.victory_menu_options)
+                elif event.key == pygame.K_DOWN:
+                    self.victory_menu_selected = (self.victory_menu_selected + 1) % len(self.victory_menu_options)
+                elif event.key in CONTROLS["confirm"]:
+                    if self.victory_menu_selected == 0:  # Continuer -> map des niveaux
+                        self._complete_stage()
+                    else:  # Retour -> lobby (menu principal)
+                        self.game.change_scene(STATE_MENU)
+                return
+
+            # Pause (pas pendant l'ultime ou la mort du boss)
+            if event.key in CONTROLS["pause"] and not self.ultimate_active and not self.boss_death_active:
                 self.game.change_scene(STATE_PAUSE)
                 return
 
@@ -626,14 +666,14 @@ class GameplayScene(Scene):
                     # Collision normale - le joueur prend des degats
                     if self.player.take_damage(enemy.damage):
                         self.game.game_data["lives"] = self.player.health
-                        # Repousser le joueur legerement (sans teleportation)
+                        # Decaler le joueur de quelques pixels pour eviter la superposition
+                        # Direction: vers le dos du joueur (oppose a la direction qu'il regarde)
                         if self.player.rect.centerx < enemy.rect.centerx:
-                            self.player.rect.x -= 20
+                            # Ennemi a droite, decaler le joueur a gauche
+                            self.player.rect.x -= 5
                         else:
-                            self.player.rect.x += 20
-                        # Petit saut de recul
-                        if self.player.on_ground:
-                            self.player.velocity_y = -5
+                            # Ennemi a gauche, decaler le joueur a droite
+                            self.player.rect.x += 5
 
         # Joueur -> Pickups
         for pickup in self.pickups:
@@ -680,13 +720,25 @@ class GameplayScene(Scene):
                 self._complete_stage()
 
     def _start_celebration(self):
-        """Demarre l'animation de celebration apres avoir battu le boss"""
+        """Demarre l'animation de mort du boss avec zoom"""
         self.celebration_active = True
         self.celebration_timer = 0
-        self.celebration_particles = []
-        # Generer des particules initiales
-        for _ in range(50):
-            self._spawn_celebration_particle()
+
+        # Demarrer l'animation de mort du boss
+        self.boss_death_active = True
+        self.boss_death_timer = 0
+        self.boss_death_alpha = 255
+        self.boss_death_zoom = 1.0
+
+        # Position du boss pour l'animation (centre de l'ecran)
+        if self.boss:
+            self.boss_death_pos = (self.boss.rect.centerx, self.boss.rect.centery)
+            # Camera cible pour centrer sur le boss
+            self.target_camera_x = self.boss.rect.centerx - WIDTH // 2
+            self.target_camera_x = max(0, min(self.target_camera_x, self.level_width - WIDTH))
+        else:
+            self.boss_death_pos = (WIDTH // 2 + self.camera_x, HEIGHT // 2)
+            self.target_camera_x = self.camera_x
 
         # Jouer la musique de victoire
         try:
@@ -697,41 +749,37 @@ class GameplayScene(Scene):
         except (pygame.error, FileNotFoundError) as e:
             print(f"Impossible de charger la musique de victoire: {e}")
 
-    def _spawn_celebration_particle(self):
-        """Cree une particule de celebration (confetti)"""
-        particle = {
-            "x": random.randint(0, WIDTH),
-            "y": random.randint(-50, 0),
-            "vel_x": random.uniform(-2, 2),
-            "vel_y": random.uniform(2, 5),
-            "color": random.choice([YELLOW, PURPLE, GREEN, ORANGE, WHITE]),
-            "size": random.randint(5, 12),
-            "rotation": random.uniform(0, 360),
-            "rot_speed": random.uniform(-5, 5),
-        }
-        self.celebration_particles.append(particle)
-
     def _update_celebration(self, dt_ms):
-        """Met a jour l'animation de celebration"""
+        """Met a jour l'animation de mort du boss"""
         self.celebration_timer += dt_ms
+        self.boss_death_timer += dt_ms
 
-        # Ajouter de nouvelles particules
-        if len(self.celebration_particles) < 100 and random.random() < 0.3:
-            self._spawn_celebration_particle()
+        # Phase 1: Zoom smooth sur le boss (0-2000ms)
+        if self.boss_death_timer < 2000:
+            # Zoom progressif de 1.0 a 1.5
+            progress = self.boss_death_timer / 2000
+            self.boss_death_zoom = 1.0 + progress * 0.5
 
-        # Mettre a jour les particules
-        for particle in self.celebration_particles[:]:
-            particle["x"] += particle["vel_x"]
-            particle["y"] += particle["vel_y"]
-            particle["rotation"] += particle["rot_speed"]
+            # Deplacement smooth de la camera vers le boss
+            camera_diff = self.target_camera_x - self.camera_x
+            self.camera_x += camera_diff * 0.05
 
-            # Supprimer si hors ecran
-            if particle["y"] > HEIGHT + 50:
-                self.celebration_particles.remove(particle)
+        # Phase 2: Fade out du boss (2000-4000ms)
+        elif self.boss_death_timer < 4000:
+            progress = (self.boss_death_timer - 2000) / 2000
+            self.boss_death_alpha = int(255 * (1 - progress))
+            self.boss_death_zoom = 1.5
 
-        # Apres 7 secondes, passer a l'ecran de victoire
-        if self.celebration_timer >= 7000:
-            self._complete_stage()
+        # Phase 3: Dezoom et affichage du menu (4000-5000ms)
+        elif self.boss_death_timer < 5000:
+            progress = (self.boss_death_timer - 4000) / 1000
+            self.boss_death_zoom = 1.5 - progress * 0.5
+            self.boss_death_alpha = 0
+
+        # Phase 4: Afficher le menu de victoire
+        else:
+            self.boss_death_active = False
+            self.victory_menu_active = True
 
     def _complete_stage(self):
         """Complete le stage actuel et passe au suivant ou au niveau suivant"""
@@ -760,8 +808,8 @@ class GameplayScene(Scene):
                 self.game.game_data["level_stars"].get(self.current_level_id, 0)
             )
 
-            # Aller a l'ecran de victoire
-            self.game.change_scene(STATE_VICTORY)
+            # Aller directement a la map des niveaux
+            self.game.change_scene(STATE_LEVEL_SELECT)
 
     def draw(self, screen):
         """Dessine le gameplay"""
@@ -835,21 +883,30 @@ class GameplayScene(Scene):
             self._draw_celebration(screen)
 
     def _draw_celebration(self, screen):
-        """Dessine l'animation de celebration"""
-        # Fond semi-transparent dore
+        """Dessine l'animation de mort du boss et le menu de victoire"""
+        # Fond semi-transparent sombre
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((255, 215, 0, 50))  # Or transparent
+        overlay.fill((0, 0, 0, 100))
         screen.blit(overlay, (0, 0))
 
-        # Dessiner les particules (confettis)
-        for particle in self.celebration_particles:
-            # Dessiner un rectangle tourne (confetti)
-            size = particle["size"]
-            color = particle["color"]
-            x, y = int(particle["x"]), int(particle["y"])
+        # Dessiner l'image de mort du boss avec zoom et fade
+        if self.boss_death_active and self.boss_death_image and self.boss_death_alpha > 0:
+            # Position relative a la camera
+            draw_x = self.boss_death_pos[0] - self.camera_x
+            draw_y = self.boss_death_pos[1]
 
-            # Simple rectangle pour le confetti
-            pygame.draw.rect(screen, color, (x - size//2, y - size//2, size, size))
+            # Appliquer le zoom
+            original_size = self.boss_death_image.get_size()
+            new_width = int(original_size[0] * self.boss_death_zoom)
+            new_height = int(original_size[1] * self.boss_death_zoom)
+            scaled_img = pygame.transform.scale(self.boss_death_image, (new_width, new_height))
+
+            # Appliquer l'alpha (transparence)
+            scaled_img.set_alpha(self.boss_death_alpha)
+
+            # Centrer l'image
+            img_rect = scaled_img.get_rect(center=(draw_x, draw_y))
+            screen.blit(scaled_img, img_rect)
 
         # Texte "BOSS VAINCU!" avec effet de pulsation
         pulse = 1.0 + math.sin(self.celebration_timer / 200) * 0.15
@@ -861,28 +918,88 @@ class GameplayScene(Scene):
 
         # Ombre du texte
         shadow_text = font.render("BOSS VAINCU!", True, (50, 50, 50))
-        shadow_rect = shadow_text.get_rect(center=(WIDTH // 2 + 4, HEIGHT // 3 + 4))
+        shadow_rect = shadow_text.get_rect(center=(WIDTH // 2 + 4, HEIGHT // 4 + 4))
         screen.blit(shadow_text, shadow_rect)
 
         # Texte principal
         text = font.render("BOSS VAINCU!", True, YELLOW)
-        text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+        text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 4))
         screen.blit(text, text_rect)
 
-        # Sous-texte
+        # Message "Vous avez gagne!"
         try:
-            sub_font = pygame.font.Font(str(FONT_ROAD_RAGE), 28)
+            sub_font = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
         except (pygame.error, FileNotFoundError):
-            sub_font = pygame.font.Font(None, 28)
-        sub_text = sub_font.render("Tu es une vraie Rockstar!", True, WHITE)
-        sub_rect = sub_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 160))
-        screen.blit(sub_text, sub_rect)
+            sub_font = pygame.font.Font(None, 36)
 
-        # Compte a rebours avant victoire
-        remaining = max(0, 7000 - self.celebration_timer) // 1000 + 1
-        countdown_text = sub_font.render(f"Victoire dans {remaining}...", True, GRAY)
-        countdown_rect = countdown_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-        screen.blit(countdown_text, countdown_rect)
+        win_text = sub_font.render("Vous avez gagne!", True, WHITE)
+        win_rect = win_text.get_rect(center=(WIDTH // 2, HEIGHT // 4 + 70))
+        screen.blit(win_text, win_rect)
+
+        # Menu de victoire (apres le fade du boss)
+        if self.victory_menu_active:
+            self._draw_victory_menu(screen)
+
+    def _draw_victory_menu(self, screen):
+        """Dessine le menu continuer/quitter apres la mort du boss"""
+        try:
+            menu_font = pygame.font.Font(str(FONT_ROAD_RAGE), 36)
+            small_font = pygame.font.Font(str(FONT_ROAD_RAGE), 24)
+        except (pygame.error, FileNotFoundError):
+            menu_font = pygame.font.Font(None, 36)
+            small_font = pygame.font.Font(None, 24)
+
+        # Box du menu
+        box_width = 300
+        box_height = 150
+        box_x = (WIDTH - box_width) // 2
+        box_y = HEIGHT // 2 + 50
+
+        # Fond de la boite
+        box_surf = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        box_surf.fill((30, 20, 40, 220))
+        screen.blit(box_surf, (box_x, box_y))
+
+        # Bordure animee
+        border_color = (
+            int(200 + math.sin(self.animation_time * 4) * 55),
+            int(100 + math.sin(self.animation_time * 3) * 50),
+            0
+        )
+        pygame.draw.rect(screen, border_color, (box_x, box_y, box_width, box_height), 3, border_radius=10)
+
+        # Options
+        for i, option in enumerate(self.victory_menu_options):
+            y = box_y + 40 + i * 55
+            is_selected = i == self.victory_menu_selected
+
+            if is_selected:
+                sel_surf = pygame.Surface((box_width - 40, 45), pygame.SRCALPHA)
+                sel_surf.fill((255, 200, 0, 80))
+                screen.blit(sel_surf, (box_x + 20, y - 8))
+
+                # Fleche animee
+                arrow_offset = math.sin(self.animation_time * 8) * 5
+                arrow_size = 12
+                points = [
+                    (box_x + 30 + arrow_offset, y + 14 - arrow_size // 2),
+                    (box_x + 30 + arrow_offset, y + 14 + arrow_size // 2),
+                    (box_x + 30 + arrow_offset + arrow_size, y + 14)
+                ]
+                pygame.draw.polygon(screen, YELLOW, points)
+
+                color = YELLOW
+            else:
+                color = WHITE
+
+            text = menu_font.render(option, True, color)
+            rect = text.get_rect(center=(WIDTH // 2, y + 14))
+            screen.blit(text, rect)
+
+        # Instructions
+        instructions = small_font.render("Fleches + Entree pour choisir", True, GRAY)
+        inst_rect = instructions.get_rect(center=(WIDTH // 2, box_y + box_height + 20))
+        screen.blit(instructions, inst_rect)
 
     def _draw_placeholder_bg(self, screen):
         """Dessine un fond placeholder"""
