@@ -11,7 +11,7 @@
       "stage_id": 1,
       "name": "En ville",
       "width": 3000,
-      "background": "level1/bg1.png",
+      "background": "bg_level1.png",
       "music": "level1.wav",
       "player_spawn": { "x": 100, "y": 600 },
 
@@ -59,7 +59,7 @@
       "stage_id": 2,
       "name": "Entrée en concert",
       "width": 4000,
-      "background": "level1/bg2.png",
+      "background": "bg_level2.png",
       "music": "level1.wav",
       "player_spawn": { "x": 100, "y": 600 },
 
@@ -123,7 +123,7 @@
       "stage_id": 3,
       "name": "Le Rival",
       "width": 1200,
-      "background": "level1/bg3.png",
+      "background": "bg_boss.png",
       "music": "combat_final.wav",
       "player_spawn": { "x": 100, "y": 600 },
       "is_boss_stage": true,
