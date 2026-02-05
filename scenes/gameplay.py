@@ -27,7 +27,9 @@ from settings import (
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     HUD_MARGIN, HUD_HEALTH_SIZE,
     SND_DIR, SND_VICTORY, SND_JUMP, SND_SHOOT, SND_PICKUP,
-    SND_ENEMY_DEATH, SND_DEATH,
+    SND_ENEMY_DEATH, SND_DEATH, SND_HURT, SND_MENU_CLICK,
+    SND_CROUCH, SND_RUN,
+    SND_BOSS_LAUGH_12, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS,
 )
 
 
@@ -115,6 +117,13 @@ class GameplayScene(Scene):
         self.sfx = {}
         self._load_sfx()
 
+        # Flag pour le son de course en boucle
+        self._run_sfx_playing = False
+
+        # Timer pour le rire du boss (declenche 1 seconde apres avoir touche le joueur)
+        self._boss_laugh_timer = 0
+        self._boss_laugh_type = None  # "boss"/"boss2" ou "boss3"
+
     def _load_sfx(self):
         """Charge les effets sonores"""
         sfx_files = {
@@ -123,6 +132,13 @@ class GameplayScene(Scene):
             "pickup": SND_PICKUP,
             "enemy_death": SND_ENEMY_DEATH,
             "death": SND_DEATH,
+            "hurt": SND_HURT,
+            "menu_click": SND_MENU_CLICK,
+            "crouch": SND_CROUCH,
+            "run": SND_RUN,
+            "boss_laugh_12": SND_BOSS_LAUGH_12,
+            "boss_laugh_3": SND_BOSS_LAUGH_3,
+            "shoot_boss": SND_SHOOT_BOSS,
         }
         for key, filename in sfx_files.items():
             try:
@@ -132,11 +148,34 @@ class GameplayScene(Scene):
             except (pygame.error, FileNotFoundError):
                 self.sfx[key] = None
 
+        # Volume plus fort pour le son de course
+        if self.sfx.get("run"):
+            self.sfx["run"].set_volume(0.8)
+
     def _play_sfx(self, name):
         """Joue un effet sonore"""
         sound = self.sfx.get(name)
         if sound:
             sound.play()
+
+    def _stop_run_sfx(self):
+        """Arrete le son de course s'il est en cours"""
+        if self._run_sfx_playing:
+            run_sound = self.sfx.get("run")
+            if run_sound:
+                run_sound.stop()
+            self._run_sfx_playing = False
+
+    def _stop_boss_sfx(self):
+        """Arrete tous les sons du boss (rire, tir)"""
+        self._boss_laugh_timer = 0
+        self._boss_laugh_type = None
+        if self.sfx.get("boss_laugh_12"):
+            self.sfx["boss_laugh_12"].stop()
+        if self.sfx.get("boss_laugh_3"):
+            self.sfx["boss_laugh_3"].stop()
+        if self.sfx.get("shoot_boss"):
+            self.sfx["shoot_boss"].stop()
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
@@ -337,8 +376,10 @@ class GameplayScene(Scene):
             if self.victory_menu_active:
                 if event.key == pygame.K_UP:
                     self.victory_menu_selected = (self.victory_menu_selected - 1) % len(self.victory_menu_options)
+                    self._play_sfx("menu_click")
                 elif event.key == pygame.K_DOWN:
                     self.victory_menu_selected = (self.victory_menu_selected + 1) % len(self.victory_menu_options)
+                    self._play_sfx("menu_click")
                 elif event.key in CONTROLS["confirm"]:
                     if self.victory_menu_selected == 0:  # Continuer -> map des niveaux
                         self._complete_stage()
@@ -348,6 +389,7 @@ class GameplayScene(Scene):
 
             # Pause (pas pendant l'ultime ou la mort du boss)
             if event.key in CONTROLS["pause"] and not self.ultimate_active and not self.boss_death_active:
+                self._stop_run_sfx()
                 self.game.change_scene(STATE_PAUSE)
                 return
 
@@ -405,6 +447,9 @@ class GameplayScene(Scene):
             return
         if self.ultimate_active:
             return  # Deja en cours
+
+        # Arreter le son de course
+        self._stop_run_sfx()
 
         # Consommer la charge
         self.player.use_ultimate()
@@ -530,6 +575,24 @@ class GameplayScene(Scene):
             self._play_sfx("jump")
             self.player.just_jumped = False
 
+        # Son d'accroupissement
+        if self.player.just_crouched:
+            self._play_sfx("crouch")
+            self.player.just_crouched = False
+
+        # Son de course (en boucle tant qu'on court)
+        is_running = self.player.velocity_x != 0 and self.player.on_ground and not self.player.is_crouching
+        if is_running and not self._run_sfx_playing:
+            run_sound = self.sfx.get("run")
+            if run_sound:
+                run_sound.play(loops=-1)
+                self._run_sfx_playing = True
+        elif not is_running and self._run_sfx_playing:
+            run_sound = self.sfx.get("run")
+            if run_sound:
+                run_sound.stop()
+            self._run_sfx_playing = False
+
         # Mise a jour des entites
         self.player.update(dt, self.platforms)
 
@@ -559,8 +622,29 @@ class GameplayScene(Scene):
         for enemy in self.enemies:
             if isinstance(enemy, Boss):
                 enemy.update(dt, self.player.rect, self.boss_projectiles)
+                # Son de tir du boss
+                if enemy.just_attacked:
+                    self._play_sfx("shoot_boss")
+                    enemy.just_attacked = False
             else:
                 enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.enemy_projectiles)
+
+        # Timer pour le rire du boss
+        if self._boss_laugh_timer > 0:
+            self._boss_laugh_timer -= dt_ms
+            if self._boss_laugh_timer <= 0:
+                # Jouer le rire selon le type de boss (une seule fois)
+                if self._boss_laugh_type == "boss3":
+                    sound = self.sfx.get("boss_laugh_3")
+                    if sound:
+                        sound.stop()  # Arreter si deja en cours
+                        sound.play()
+                else:
+                    sound = self.sfx.get("boss_laugh_12")
+                    if sound:
+                        sound.stop()  # Arreter si deja en cours
+                        sound.play()
+                self._boss_laugh_type = None
 
         # Empecher les ennemis de se chevaucher
         self._resolve_enemy_collisions()
@@ -586,6 +670,8 @@ class GameplayScene(Scene):
 
         # Verifier game over
         if self.player.health <= 0:
+            self._stop_run_sfx()
+            self._stop_boss_sfx()
             self.game.game_data["score"] = self.game.game_data.get("score", 0)
             self.game.change_scene(STATE_GAME_OVER)
 
@@ -727,13 +813,20 @@ class GameplayScene(Scene):
             if proj.rect.colliderect(self.player.rect):
                 proj.kill()
                 if self.player.take_damage(proj.damage):
+                    self._play_sfx("hurt")
                     self.game.game_data["lives"] = self.player.health
+                    # Declencher le rire du boss 1 seconde apres avoir touche le joueur
+                    # Seulement si le joueur est encore en vie ET si pas deja en attente
+                    if self.boss and self.player.health > 0 and self._boss_laugh_timer <= 0:
+                        self._boss_laugh_timer = 1000  # 1 seconde
+                        self._boss_laugh_type = getattr(self.boss, 'boss_type', 'boss')
 
         # Projectiles ennemis -> Joueur
         for proj in self.enemy_projectiles:
             if proj.rect.colliderect(self.player.rect):
                 proj.kill()
                 if self.player.take_damage(proj.damage):
+                    self._play_sfx("hurt")
                     self.game.game_data["lives"] = self.player.health
 
         # Ennemis -> Joueur (contact)
@@ -763,6 +856,7 @@ class GameplayScene(Scene):
                 else:
                     # Collision normale - le joueur prend des degats
                     if self.player.take_damage(enemy.damage):
+                        self._play_sfx("hurt")
                         self.game.game_data["lives"] = self.player.health
                         # Decaler le joueur de quelques pixels pour eviter la superposition
                         # Direction: vers le dos du joueur (oppose a la direction qu'il regarde)
@@ -824,6 +918,7 @@ class GameplayScene(Scene):
 
     def _start_celebration(self):
         """Demarre l'animation de mort du boss avec zoom"""
+        self._stop_run_sfx()
         self.celebration_active = True
         self.celebration_timer = 0
 
@@ -925,6 +1020,12 @@ class GameplayScene(Scene):
             screen.blit(self.background, (WIDTH - bg_offset, 0))
         else:
             self._draw_placeholder_bg(screen)
+
+        # Voile sombre pour attenuer les couleurs du fond
+        if not hasattr(self, '_bg_overlay'):
+            self._bg_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            self._bg_overlay.fill((0, 0, 0, 90))
+        screen.blit(self._bg_overlay, (0, 0))
 
         # Plateformes
         for platform in self.platforms:

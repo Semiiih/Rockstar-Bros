@@ -11,7 +11,7 @@ from settings import (
     STATE_GAMEPLAY, STATE_MENU,
     CONTROLS,
     IMG_BG_DIR, IMG_BG_LEVEL_CHOICE,
-    SND_DIR, SND_MUSIC_MENU,
+    SND_DIR, SND_MUSIC_MENU, SND_MENU_CLICK, SND_CONFIRM_STAGE,
 )
 from level_loader import get_loader
 import math
@@ -182,6 +182,24 @@ class LevelSelectScene(Scene):
         # Animation de fond
         self.bg_offset = 0
 
+        # Index de selection clavier
+        self.keyboard_index = 0
+
+        # Sons
+        self.click_sfx = None
+        try:
+            self.click_sfx = pygame.mixer.Sound(str(SND_DIR / SND_MENU_CLICK))
+            self.click_sfx.set_volume(0.5)
+        except (pygame.error, FileNotFoundError):
+            pass
+
+        self.confirm_sfx = None
+        try:
+            self.confirm_sfx = pygame.mixer.Sound(str(SND_DIR / SND_CONFIRM_STAGE))
+            self.confirm_sfx.set_volume(0.6)
+        except (pygame.error, FileNotFoundError):
+            pass
+
     def enter(self, **kwargs):
         """Entre dans la scene"""
         # Charger le background
@@ -217,6 +235,10 @@ class LevelSelectScene(Scene):
                 self.nodes.append(node)
 
         self.selected_node = None
+        self.keyboard_index = 0
+        # Selectionner le premier noeud debloque par defaut
+        if self.nodes:
+            self.selected_node = self.nodes[0]
 
         # Jouer la musique du menu (meme musique que le menu principal)
         try:
@@ -237,16 +259,34 @@ class LevelSelectScene(Scene):
             if event.key in CONTROLS["pause"]:
                 self.game.change_scene(STATE_MENU)
 
+            # Navigation clavier gauche/droite
+            if event.key in CONTROLS["left"] and self.nodes:
+                self.keyboard_index = (self.keyboard_index - 1) % len(self.nodes)
+                self.selected_node = self.nodes[self.keyboard_index]
+                if self.click_sfx:
+                    self.click_sfx.play()
+            elif event.key in CONTROLS["right"] and self.nodes:
+                self.keyboard_index = (self.keyboard_index + 1) % len(self.nodes)
+                self.selected_node = self.nodes[self.keyboard_index]
+                if self.click_sfx:
+                    self.click_sfx.play()
+
             # Selection avec Enter
             if event.key in CONTROLS["confirm"] and self.selected_node:
-                self._start_level(self.selected_node.level_id)
+                if self.selected_node.unlocked:
+                    if self.confirm_sfx:
+                        self.confirm_sfx.play()
+                    self._start_level(self.selected_node.level_id)
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Clic gauche
                 mouse_pos = pygame.mouse.get_pos()
-                for node in self.nodes:
+                for i, node in enumerate(self.nodes):
                     if node.unlocked and node.hover:
                         self.selected_node = node
+                        self.keyboard_index = i
+                        if self.confirm_sfx:
+                            self.confirm_sfx.play()
                         self._start_level(node.level_id)
                         break
 
@@ -255,12 +295,17 @@ class LevelSelectScene(Scene):
         mouse_pos = pygame.mouse.get_pos()
 
         # Mettre a jour les nodes
-        for node in self.nodes:
+        for i, node in enumerate(self.nodes):
             node.update(dt, mouse_pos)
 
-            # Selection automatique au hover
+            # Selection automatique au hover (souris)
             if node.hover:
                 self.selected_node = node
+                self.keyboard_index = i
+
+        # Forcer le hover visuel sur le noeud selectionne au clavier
+        if self.selected_node and not any(n.hover for n in self.nodes):
+            self.selected_node.hover = True
 
         # Animation de fond
         self.bg_offset += dt * 20
@@ -297,7 +342,7 @@ class LevelSelectScene(Scene):
             self._draw_level_info(screen, self.selected_node)
 
         # Instructions
-        instructions = self.font_small.render("Cliquez sur un niveau pour commencer - ESC pour revenir en arrière", True, WHITE)
+        instructions = self.font_small.render("Fleches pour naviguer - ENTREE pour jouer - ECHAP pour retour", True, WHITE)
         inst_rect = instructions.get_rect(center=(WIDTH // 2, HEIGHT - 30))
         screen.blit(instructions, inst_rect)
 
@@ -391,7 +436,7 @@ class LevelSelectScene(Scene):
         screen.blit(stages_text, (panel_x + 20, panel_y + 120))
 
         # Instruction
-        play_text = self.font_small.render("Click to PLAY!", True, YELLOW)
+        play_text = self.font_small.render("ENTREE pour JOUER!", True, YELLOW)
         screen.blit(play_text, (panel_x + 20, panel_y + 145))
 
     def _start_level(self, level_id):

@@ -12,7 +12,7 @@ from settings import (
     IMG_DIR, IMG_HOME, IMG_LOGO, IMG_PLAYER_DIR,
     IMG_PLAYER1_IDLE, IMG_PLAYER2_IDLE,
     PLAYER_WIDTH, PLAYER_HEIGHT,
-    SND_DIR, SND_MUSIC_MENU,
+    SND_DIR, SND_MUSIC_MENU, SND_MENU_CLICK, SND_CONFIRM_MENU,
     FONT_METAL_MANIA, FONT_ROAD_RAGE
 )
 
@@ -78,6 +78,22 @@ class MenuScene(Scene):
         self.logo = None
         self.player1_img = None
         self.player2_img = None
+
+        # Son de navigation
+        self.click_sfx = None
+        try:
+            self.click_sfx = pygame.mixer.Sound(str(SND_DIR / SND_MENU_CLICK))
+            self.click_sfx.set_volume(0.5)
+        except (pygame.error, FileNotFoundError):
+            pass
+
+        # Son de confirmation
+        self.confirm_sfx = None
+        try:
+            self.confirm_sfx = pygame.mixer.Sound(str(SND_DIR / SND_CONFIRM_MENU))
+            self.confirm_sfx.set_volume(0.6)
+        except (pygame.error, FileNotFoundError):
+            pass
 
         # Animation
         self.anim_time = 0
@@ -183,13 +199,26 @@ class MenuScene(Scene):
             elif self.menu_state == "controls":
                 self._handle_controls(event)
 
+    def _play_click(self):
+        """Joue le son de clic menu"""
+        if self.click_sfx:
+            self.click_sfx.play()
+
+    def _play_confirm(self):
+        """Joue le son de confirmation"""
+        if self.confirm_sfx:
+            self.confirm_sfx.play()
+
     def _handle_main_menu(self, event):
         """Gere les inputs du menu principal"""
         if event.key == pygame.K_UP:
             self.selected_option = (self.selected_option - 1) % len(self.main_options)
+            self._play_click()
         elif event.key == pygame.K_DOWN:
             self.selected_option = (self.selected_option + 1) % len(self.main_options)
+            self._play_click()
         elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+            self._play_confirm()
             if self.selected_option == 0:  # Jouer
                 self.menu_state = "character_select"
                 self.selected_character = 1
@@ -203,9 +232,12 @@ class MenuScene(Scene):
         """Gere les inputs de la selection de personnage"""
         if event.key == pygame.K_LEFT:
             self.selected_character = 1
+            self._play_click()
         elif event.key == pygame.K_RIGHT:
             self.selected_character = 2
+            self._play_click()
         elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+            self._play_confirm()
             self.game.game_data["selected_character"] = self.selected_character
             self.game.reset_game()
             # Aller vers la selection de niveau
@@ -218,9 +250,12 @@ class MenuScene(Scene):
         """Gere les inputs du menu options"""
         if event.key == pygame.K_UP:
             self.selected_option = (self.selected_option - 1) % len(self.options_menu)
+            self._play_click()
         elif event.key == pygame.K_DOWN:
             self.selected_option = (self.selected_option + 1) % len(self.options_menu)
+            self._play_click()
         elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+            self._play_confirm()
             if self.selected_option == 0:  # Touches
                 self.menu_state = "controls"
                 self.controls_selected = 0
@@ -237,8 +272,10 @@ class MenuScene(Scene):
 
         if event.key == pygame.K_UP:
             self.controls_selected = (self.controls_selected - 1) % (num_actions + 1)
+            self._play_click()
         elif event.key == pygame.K_DOWN:
             self.controls_selected = (self.controls_selected + 1) % (num_actions + 1)
+            self._play_click()
         elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
             if self.controls_selected < num_actions:
                 # Commencer a attendre une nouvelle touche

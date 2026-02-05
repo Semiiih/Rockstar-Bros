@@ -505,6 +505,9 @@ class Boss(pygame.sprite.Sprite):
         self.move_direction = -1
         self.is_moving = False
 
+        # Flag pour declencher le son de tir
+        self.just_attacked = False
+
     def _load_images(self):
         """Charge toutes les images d'animation du boss"""
         # Selection des images selon le type de boss
@@ -637,6 +640,7 @@ class Boss(pygame.sprite.Sprite):
     def _perform_attack(self, player_rect, projectiles_group):
         """Execute une attaque selon le type de boss"""
         self.attack_anim_timer = 400  # Animation d'attaque pendant 400ms
+        self.just_attacked = True  # Declenche le son de tir
 
         if self.boss_type == "boss3":
             # Boss 3: Attaques en rafale et en eventail

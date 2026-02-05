@@ -77,7 +77,7 @@ class Game:
             self.current_scene = self.scenes[scene_name]
             self.current_scene.enter(**kwargs)
 
-    def change_scene(self, scene_name, **kwargs):
+    def change_scene(self, scene_name, resume=False, **kwargs):
         """Change la scene avec transition slide"""
         if scene_name in self.scenes and not self.transitioning:
             # Capturer l'ecran actuel
@@ -89,7 +89,8 @@ class Game:
 
             # Activer la nouvelle scene pour la dessiner
             new_scene = self.scenes[scene_name]
-            new_scene.enter(**kwargs)
+            if not resume:
+                new_scene.enter(**kwargs)
 
             # Capturer l'ecran de la nouvelle scene
             self.transition_to_surface = pygame.Surface((WIDTH, HEIGHT))
