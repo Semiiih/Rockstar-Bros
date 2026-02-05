@@ -29,7 +29,7 @@ from settings import (
     SND_DIR, SND_VICTORY, SND_JUMP, SND_SHOOT, SND_PICKUP,
     SND_ENEMY_DEATH, SND_DEATH, SND_HURT, SND_MENU_CLICK,
     SND_CROUCH, SND_RUN,
-    SND_BOSS_LAUGH_1, SND_BOSS_LAUGH_2, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS,
+    SND_BOSS_LAUGH_1, SND_BOSS_LAUGH_2, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS, SND_BOSS_STEPS,
 )
 
 
@@ -127,6 +127,7 @@ class GameplayScene(Scene):
 
         # Flag pour le son de course en boucle
         self._run_sfx_playing = False
+        self._boss_steps_playing = False
 
         # Timer pour le rire du boss (declenche 1 seconde apres avoir touche le joueur)
         self._boss_laugh_timer = 0
@@ -153,6 +154,7 @@ class GameplayScene(Scene):
             "boss_laugh_2": SND_BOSS_LAUGH_2,
             "boss_laugh_3": SND_BOSS_LAUGH_3,
             "shoot_boss": SND_SHOOT_BOSS,
+            "boss_steps": SND_BOSS_STEPS,
         }
         for key, filename in sfx_files.items():
             try:
@@ -184,10 +186,19 @@ class GameplayScene(Scene):
                 run_sound.stop()
             self._run_sfx_playing = False
 
+    def _stop_boss_steps_sfx(self):
+        """Arrete le son de pas du boss"""
+        if self._boss_steps_playing:
+            boss_steps = self.sfx.get("boss_steps")
+            if boss_steps:
+                boss_steps.stop()
+            self._boss_steps_playing = False
+
     def _stop_boss_sfx(self):
-        """Arrete tous les sons du boss (rire, tir)"""
+        """Arrete tous les sons du boss (rire, tir, pas)"""
         self._boss_laugh_timer = 0
         self._boss_laugh_type = None
+        self._stop_boss_steps_sfx()
         if self.sfx.get("boss_laugh_1"):
             self.sfx["boss_laugh_1"].stop()
         if self.sfx.get("boss_laugh_2"):
@@ -711,6 +722,15 @@ class GameplayScene(Scene):
                 if enemy.just_attacked:
                     self._play_sfx("shoot_boss")
                     enemy.just_attacked = False
+                # Son de pas du boss (en boucle quand il marche)
+                if enemy.is_moving:
+                    if not self._boss_steps_playing:
+                        boss_steps = self.sfx.get("boss_steps")
+                        if boss_steps:
+                            boss_steps.play(-1)
+                            self._boss_steps_playing = True
+                else:
+                    self._stop_boss_steps_sfx()
             else:
                 enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.enemy_projectiles)
 
@@ -857,6 +877,9 @@ class GameplayScene(Scene):
                     else:
                         enemy1.rect.x += push_amount
                         enemy2.rect.x -= push_amount
+                    # Synchroniser float_x apres le push
+                    enemy1.float_x = float(enemy1.rect.x)
+                    enemy2.float_x = float(enemy2.rect.x)
 
     def _add_damage_number(self, x, y, damage, color=YELLOW):
         """Ajoute un nombre de degats flottant"""

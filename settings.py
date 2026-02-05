@@ -265,6 +265,7 @@ SND_BOSS_LAUGH_1 = "rire_boss1.wav"
 SND_BOSS_LAUGH_2 = "rire_boss2.wav"
 SND_BOSS_LAUGH_3 = "rire_boss3.wav"
 SND_SHOOT_BOSS = "shoot_boss.wav"
+SND_BOSS_STEPS = "boss_steps.wav"
 
 # =============================================================================
 # IMAGES (noms des fichiers)

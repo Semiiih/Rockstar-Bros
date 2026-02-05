@@ -121,6 +121,9 @@ class Enemy(pygame.sprite.Sprite):
         else:
             self.rect = self.image.get_rect(midbottom=(x, y))
 
+        # Position float pour mouvement sub-pixel precis
+        self.float_x = float(self.rect.x)
+
         # Comportement
         self.facing_right = False
         self.patrol_direction = -1
@@ -186,9 +189,6 @@ class Enemy(pygame.sprite.Sprite):
                     img = pygame.transform.scale(img, (new_width, self.height))
                 else:
                     img = pygame.transform.scale(img, (self.width, self.height))
-                # Miroir de l'image attack du rival_shooter (image orientee a droite)
-                if key == "attack" and self.can_shoot:
-                    img = pygame.transform.flip(img, True, False)
                 self.images[key] = img
             except Exception:
                 self.images[key] = None
@@ -278,10 +278,11 @@ class Enemy(pygame.sprite.Sprite):
             self.rect.centery = int(target_y)
             self.on_ground = True  # Toujours "au sol" pour le comportement
         else:
-            # Appliquer la gravite normalement
-            self.velocity_y += GRAVITY
-            if self.velocity_y > MAX_FALL_SPEED:
-                self.velocity_y = MAX_FALL_SPEED
+            # Appliquer la gravite seulement en l'air (evite oscillation on_ground)
+            if not self.on_ground:
+                self.velocity_y += GRAVITY
+                if self.velocity_y > MAX_FALL_SPEED:
+                    self.velocity_y = MAX_FALL_SPEED
 
             # Mouvement vertical pixel par pixel pour collision precise
             self.on_ground = False
@@ -306,6 +307,16 @@ class Enemy(pygame.sprite.Sprite):
                                 break
                         if self.on_ground:
                             break
+                else:
+                    # velocity_y == 0 : verifier si toujours au sol
+                    self.rect.y += 1
+                    for platform in platforms:
+                        if platform.is_ground and self.rect.colliderect(platform.rect):
+                            self.rect.bottom = platform.rect.top
+                            self.on_ground = True
+                            break
+                    if not self.on_ground:
+                        self.rect.y -= 1
 
         # Verifier si un autre ennemi est trop proche (pour eviter l'oscillation)
         blocked_left = False
@@ -342,18 +353,19 @@ class Enemy(pygame.sprite.Sprite):
             else:
                 # Tous les autres ennemis (hater, hater_flying, rival) BOUGENT et FRAPPENT
                 if dist_to_player_x < self.detection_range:
-                    # Zone morte: si le joueur est trop proche horizontalement, ne pas bouger
-                    # Evite l'effet "toupie" quand le joueur est au-dessus
-                    if dist_to_player_x > 25:
+                    # Zone morte: si le joueur est trop proche, ne pas bouger
+                    # Hysteresis: doit s'eloigner a 50px pour reprendre la poursuite
+                    chase_threshold = 50 if self.state == "idle" or self.state == "attack" else 30
+                    if dist_to_player_x > chase_threshold:
                         # Poursuit le joueur (sauf si bloque par un autre ennemi)
                         if player_rect.centerx < self.rect.centerx:
                             if not blocked_left:
-                                self.rect.x -= self.speed
+                                self.float_x -= self.speed
                                 is_moving = True
                             self.facing_right = False
                         else:
                             if not blocked_right:
-                                self.rect.x += self.speed
+                                self.float_x += self.speed
                                 is_moving = True
                             self.facing_right = True
                         if is_moving:
@@ -371,7 +383,7 @@ class Enemy(pygame.sprite.Sprite):
                     move_dir = self.speed * self.patrol_direction
                     can_move = (move_dir < 0 and not blocked_left) or (move_dir > 0 and not blocked_right)
                     if can_move:
-                        self.rect.x += move_dir
+                        self.float_x += move_dir
                         is_moving = True
                     if abs(self.rect.x - self.start_x) > self.patrol_distance:
                         self.patrol_direction *= -1
@@ -382,6 +394,9 @@ class Enemy(pygame.sprite.Sprite):
                         self.state = "idle"
         else:
             self.state = "idle"
+
+        # Synchroniser float_x -> rect.x
+        self.rect.x = round(self.float_x)
 
         # Animation de course
         if self.state == "run":
@@ -407,8 +422,8 @@ class Enemy(pygame.sprite.Sprite):
     def draw(self, screen, camera_x):
         """Dessine l'ennemi avec effets"""
         img = self.image
-        # L'image de base regarde a gauche, donc flip si regarde a droite
-        if self.facing_right:
+        # L'image de base regarde a droite, donc flip si regarde a gauche
+        if not self.facing_right:
             img = pygame.transform.flip(img, True, False)
 
         draw_rect = self.rect.move(-camera_x, 0)
@@ -499,6 +514,9 @@ class Boss(pygame.sprite.Sprite):
         self.anim_frame = 0
         self.anim_timer = 0
         self.attack_anim_timer = 0
+
+        # Position float pour mouvement sub-pixel precis
+        self.float_x = float(self.rect.x)
 
         # Mouvement
         self.move_timer = 0
@@ -609,10 +627,13 @@ class Boss(pygame.sprite.Sprite):
         self.is_moving = False
         if abs(self.rect.centerx - player_rect.centerx) > 150:
             if player_rect.centerx < self.rect.centerx:
-                self.rect.x -= self.speed
+                self.float_x -= self.speed
             else:
-                self.rect.x += self.speed
+                self.float_x += self.speed
             self.is_moving = True
+
+        # Synchroniser float_x -> rect.x
+        self.rect.x = round(self.float_x)
 
         # Determiner l'etat d'animation
         if self.is_moving:

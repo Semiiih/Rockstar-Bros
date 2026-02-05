@@ -209,10 +209,11 @@ class Player(pygame.sprite.Sprite):
         """Met a jour le joueur"""
         dt_ms = dt * 1000
 
-        # Gravite
-        self.velocity_y += GRAVITY
-        if self.velocity_y > MAX_FALL_SPEED:
-            self.velocity_y = MAX_FALL_SPEED
+        # Gravite (seulement en l'air pour eviter l'oscillation on_ground)
+        if not self.on_ground:
+            self.velocity_y += GRAVITY
+            if self.velocity_y > MAX_FALL_SPEED:
+                self.velocity_y = MAX_FALL_SPEED
 
         # Mouvement horizontal avec collision pixel-perfect
         self._move_horizontal(self.velocity_x, platforms)
