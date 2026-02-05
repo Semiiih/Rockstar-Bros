@@ -7,7 +7,7 @@ import pygame
 import random
 import math
 from scenes.base import Scene
-from entities import Player, Projectile, Enemy, Boss, Platform, Pickup
+from entities import Player, Projectile, Enemy, Boss, Platform, Pickup, MysteryBlock, StarItem
 from level_loader import get_loader
 from settings import (
     WIDTH, HEIGHT, WHITE, YELLOW, RED, GREEN, BLUE, PURPLE, ORANGE, GRAY, DARK_GRAY,
@@ -29,7 +29,7 @@ from settings import (
     SND_DIR, SND_VICTORY, SND_JUMP, SND_SHOOT, SND_PICKUP,
     SND_ENEMY_DEATH, SND_DEATH, SND_HURT, SND_MENU_CLICK,
     SND_CROUCH, SND_RUN,
-    SND_BOSS_LAUGH_12, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS,
+    SND_BOSS_LAUGH_1, SND_BOSS_LAUGH_2, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS,
 )
 
 
@@ -47,6 +47,10 @@ class GameplayScene(Scene):
         self.boss_projectiles = pygame.sprite.Group()
         self.enemy_projectiles = pygame.sprite.Group()
         self.pickups = pygame.sprite.Group()
+
+        # Easter Egg groups
+        self.mystery_blocks = pygame.sprite.Group()
+        self.star_items = pygame.sprite.Group()
 
         # Entites principales
         self.player = None
@@ -113,6 +117,10 @@ class GameplayScene(Scene):
         # Animation timer pour effets visuels
         self.animation_time = 0
 
+        # Star mode music (Easter Egg)
+        self.current_music_path = None  # Chemin de la musique actuelle
+        self.star_mode_music_active = False  # Flag pour la musique acceleree
+
         # Sons d'effets (SFX)
         self.sfx = {}
         self._load_sfx()
@@ -141,7 +149,8 @@ class GameplayScene(Scene):
             "menu_click": SND_MENU_CLICK,
             "crouch": SND_CROUCH,
             "run": SND_RUN,
-            "boss_laugh_12": SND_BOSS_LAUGH_12,
+            "boss_laugh_1": SND_BOSS_LAUGH_1,
+            "boss_laugh_2": SND_BOSS_LAUGH_2,
             "boss_laugh_3": SND_BOSS_LAUGH_3,
             "shoot_boss": SND_SHOOT_BOSS,
         }
@@ -156,6 +165,10 @@ class GameplayScene(Scene):
         # Volume plus fort pour le son de course
         if self.sfx.get("run"):
             self.sfx["run"].set_volume(0.8)
+
+        # Volume maximum pour le son de chute/mort
+        if self.sfx.get("death"):
+            self.sfx["death"].set_volume(1.0)  # Volume max (1.0 = 100%)
 
     def _play_sfx(self, name):
         """Joue un effet sonore"""
@@ -175,12 +188,28 @@ class GameplayScene(Scene):
         """Arrete tous les sons du boss (rire, tir)"""
         self._boss_laugh_timer = 0
         self._boss_laugh_type = None
-        if self.sfx.get("boss_laugh_12"):
-            self.sfx["boss_laugh_12"].stop()
+        if self.sfx.get("boss_laugh_1"):
+            self.sfx["boss_laugh_1"].stop()
+        if self.sfx.get("boss_laugh_2"):
+            self.sfx["boss_laugh_2"].stop()
         if self.sfx.get("boss_laugh_3"):
             self.sfx["boss_laugh_3"].stop()
         if self.sfx.get("shoot_boss"):
             self.sfx["shoot_boss"].stop()
+
+    def _start_star_mode_music(self):
+        """Active l'effet musical du star mode (volume boost + restart)"""
+        if self.current_music_path and not self.star_mode_music_active:
+            self.star_mode_music_active = True
+            # Augmenter le volume et relancer la musique pour un effet "power up"
+            pygame.mixer.music.set_volume(0.9)  # Volume plus fort
+
+    def _stop_star_mode_music(self):
+        """Restaure la musique normale apres le star mode"""
+        if self.star_mode_music_active:
+            self.star_mode_music_active = False
+            # Restaurer le volume normal
+            pygame.mixer.music.set_volume(0.5)
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
@@ -214,6 +243,12 @@ class GameplayScene(Scene):
         self.boss_projectiles.empty()
         self.enemy_projectiles.empty()
         self.pickups.empty()
+        self.mystery_blocks.empty()
+        self.star_items.empty()
+
+        # Reset des flags de mort par chute
+        self.game.game_data["death_by_fall"] = False
+        self.game.game_data["fall_sound_played"] = False
 
         # Obtenir la position de spawn du joueur depuis le stage
         spawn_x = 100
@@ -303,6 +338,7 @@ class GameplayScene(Scene):
             music_file = self.stage_data.get('music')
             if music_file:
                 music_path = str(SND_DIR / music_file)
+                self.current_music_path = music_path  # Sauvegarder pour star mode
                 try:
                     pygame.mixer.music.load(music_path)
                 except pygame.error:
@@ -365,6 +401,15 @@ class GameplayScene(Scene):
             boss_type = boss_data.get('type', 'boss')
             self.boss = Boss(boss_x, GROUND_Y, boss_type)
             self.enemies.add(self.boss)
+
+        # Charger les mystery blocks (Easter Egg)
+        # Les blocs sont ajoutés aux platforms pour la collision solide
+        for block_data in self.stage_data.get('mystery_blocks', []):
+            x = block_data.get('x', 0)
+            y = block_data.get('y', 400)
+            block = MysteryBlock(x, y)
+            self.mystery_blocks.add(block)
+            self.platforms.add(block)  # Add to platforms for solid collision
 
     def _load_background(self):
         """Charge le background du stage"""
@@ -590,6 +635,9 @@ class GameplayScene(Scene):
             self._update_celebration(dt_ms)
             return
 
+        # Reset head bump flag before physics update
+        self.player.head_bumped_platform = None
+
         # Input joueur normal
         keys = pygame.key.get_pressed()
         self.player.handle_input(keys)
@@ -620,6 +668,11 @@ class GameplayScene(Scene):
         # Mise a jour des entites
         self.player.update(dt, self.platforms)
 
+        # Detecter la fin du star mode pour restaurer la musique
+        if self.player.star_mode_just_ended:
+            self._stop_star_mode_music()
+            self.player.star_mode_just_ended = False
+
         # Empecher le joueur de sortir des bords du niveau
         # Bord gauche: toujours bloque
         if self.player.rect.left < 0:
@@ -640,6 +693,14 @@ class GameplayScene(Scene):
         for pickup in self.pickups:
             pickup.update(dt)
 
+        # Update mystery blocks (Easter Egg)
+        for block in self.mystery_blocks:
+            block.update(dt)
+
+        # Update star items (Easter Egg)
+        for star in self.star_items:
+            star.update(dt, self.platforms)
+
         # Mise a jour des ennemis
         # Liste des ennemis normaux pour eviter les collisions entre eux
         normal_enemies = [e for e in self.enemies if not isinstance(e, Boss)]
@@ -653,28 +714,29 @@ class GameplayScene(Scene):
             else:
                 enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.enemy_projectiles)
 
-        # Timer pour le rire du boss
+        # Empecher les ennemis de se chevaucher
+        self._resolve_enemy_collisions()
+
+        # Verifier les chutes dans le vide EN PREMIER (avant le timer du rire)
+        self._check_fall_death()
+
+        # Timer pour le rire du boss (ne pas jouer si le joueur est mort)
         if self._boss_laugh_timer > 0:
             self._boss_laugh_timer -= dt_ms
             if self._boss_laugh_timer <= 0:
-                # Jouer le rire selon le type de boss (une seule fois)
-                if self._boss_laugh_type == "boss3":
-                    sound = self.sfx.get("boss_laugh_3")
-                    if sound:
-                        sound.stop()  # Arreter si deja en cours
-                        sound.play()
-                else:
-                    sound = self.sfx.get("boss_laugh_12")
+                # Ne jouer le rire que si le joueur est encore en vie
+                if self.player.health > 0:
+                    # Jouer le rire selon le type de boss (chaque boss a son propre rire)
+                    if self._boss_laugh_type == "boss3":
+                        sound = self.sfx.get("boss_laugh_3")
+                    elif self._boss_laugh_type == "boss2":
+                        sound = self.sfx.get("boss_laugh_2")
+                    else:
+                        sound = self.sfx.get("boss_laugh_1")
                     if sound:
                         sound.stop()  # Arreter si deja en cours
                         sound.play()
                 self._boss_laugh_type = None
-
-        # Empecher les ennemis de se chevaucher
-        self._resolve_enemy_collisions()
-
-        # Verifier les chutes dans le vide
-        self._check_fall_death()
 
         # Collisions
         self._check_collisions()
@@ -735,11 +797,33 @@ class GameplayScene(Scene):
 
     def _check_fall_death(self):
         """Verifie si des entites sont tombees dans le vide"""
-        fall_limit = HEIGHT + 50  # En dessous de l'ecran
+        # Son de chute declenche des que le joueur passe sous le sol (entre dans le trou)
+        sound_trigger = GROUND_Y  # Des qu'il passe sous le niveau du sol
+        # Mort effective quand le joueur est completement hors ecran
+        fall_limit = HEIGHT + 50
 
-        # Joueur tombe dans le vide
-        if self.player.rect.top > fall_limit:
+        # Joueur entre dans le trou - jouer le son immediatement
+        if self.player.rect.top > sound_trigger and not self.game.game_data.get("fall_sound_played", False):
+            # Arreter la musique de fond
+            pygame.mixer.music.stop()
+            # Jouer le son de chute
             self._play_sfx("death")
+            self.game.game_data["fall_sound_played"] = True
+            # Marquer que c'est une mort par chute (pas de rire du boss sur game over)
+            self.game.game_data["death_by_fall"] = True
+            # Annuler le rire du boss et arreter le son s'il joue
+            self._boss_laugh_timer = 0
+            self._boss_laugh_type = None
+            # Arreter les sons de rire s'ils sont en cours
+            if self.sfx.get("boss_laugh_1"):
+                self.sfx["boss_laugh_1"].stop()
+            if self.sfx.get("boss_laugh_2"):
+                self.sfx["boss_laugh_2"].stop()
+            if self.sfx.get("boss_laugh_3"):
+                self.sfx["boss_laugh_3"].stop()
+
+        # Joueur tombe dans le vide - mort effective
+        if self.player.rect.top > fall_limit:
             self.player.health = 0  # Mort instantanee
 
         # Ennemis tombent dans le vide
@@ -896,6 +980,47 @@ class GameplayScene(Scene):
             if self.player.rect.colliderect(pickup.rect):
                 self._collect_pickup(pickup)
                 pickup.kill()
+
+        # Easter Egg: Mystery Block head bump activation
+        if self.player.head_bumped_platform is not None:
+            bumped = self.player.head_bumped_platform
+            # Check if it's a mystery block
+            if bumped in self.mystery_blocks and not bumped.activated:
+                if bumped.activate():
+                    # Spawn a star from the top of the block
+                    star = StarItem(bumped.rect.centerx, bumped.rect.top - 30)
+                    self.star_items.add(star)
+                    self._play_sfx("pickup")
+            # Reset the flag
+            self.player.head_bumped_platform = None
+
+        # Easter Egg: Star item collection
+        for star in list(self.star_items):
+            if self.player.rect.colliderect(star.rect):
+                self.player.activate_star_mode()
+                star.kill()
+                self._play_sfx("pickup")
+                # Activer la musique acceleree (effet star power)
+                self._start_star_mode_music()
+
+        # Easter Egg: Star mode contact kill
+        if self.player.star_mode:
+            for enemy in self.enemies:
+                if hasattr(enemy, 'is_dead') and enemy.is_dead:
+                    continue
+                if isinstance(enemy, Boss):
+                    continue  # Don't instant-kill bosses
+                if self.player.rect.colliderect(enemy.rect):
+                    enemy.is_dead = True
+                    enemy.state = "dead"
+                    self.game.game_data["score"] += enemy.score_value
+                    self._play_sfx("enemy_death")
+                    self._add_damage_number(
+                        enemy.rect.centerx,
+                        enemy.rect.top,
+                        enemy.max_health,
+                        YELLOW
+                    )
 
     def _collect_pickup(self, pickup):
         """Collecte un pickup"""
@@ -1063,6 +1188,14 @@ class GameplayScene(Scene):
             if draw_rect.right > 0 and draw_rect.left < WIDTH:
                 screen.blit(pickup.image, draw_rect)
 
+        # Mystery Blocks (Easter Egg)
+        for block in self.mystery_blocks:
+            block.draw(screen, self.camera_x)
+
+        # Star Items (Easter Egg)
+        for star in self.star_items:
+            star.draw(screen, self.camera_x)
+
         # Ennemis
         for enemy in self.enemies:
             if isinstance(enemy, Boss):
@@ -1085,8 +1218,15 @@ class GameplayScene(Scene):
 
         # Joueur
         player_draw_rect = self.player.rect.move(-self.camera_x, 0)
-        # Effet de clignotement si invincible
-        if self.player.invincible:
+        # Star mode effect (Easter Egg) - rainbow cycling colors
+        if self.player.star_mode:
+            # Draw glowing outline effect
+            self._draw_star_mode_effect(screen, player_draw_rect)
+            # Rapid color cycling blink
+            if (pygame.time.get_ticks() // 50) % 3 != 0:
+                screen.blit(self.player.image, player_draw_rect)
+        # Effet de clignotement si invincible (normal)
+        elif self.player.invincible:
             if (pygame.time.get_ticks() // 100) % 2 == 0:
                 screen.blit(self.player.image, player_draw_rect)
         else:
@@ -1599,6 +1739,52 @@ class GameplayScene(Scene):
         for i, result in enumerate(self.ultimate_results[-8:]):  # Max 8 derniers resultats
             color = result_colors.get(result, WHITE)
             pygame.draw.circle(screen, color, (start_x + i * 30 + 15, TRACK_Y + TRACK_HEIGHT + 70), 10)
+
+    def _draw_star_mode_effect(self, screen, player_rect):
+        """Draw the star mode glow effect around player (Easter Egg)"""
+        # Rainbow color cycling based on time
+        time_ms = pygame.time.get_ticks()
+        cycle_speed = 100  # Color changes every 100ms
+        colors = [
+            (255, 0, 0),     # Red
+            (255, 165, 0),   # Orange
+            (255, 255, 0),   # Yellow
+            (0, 255, 0),     # Green
+            (0, 255, 255),   # Cyan
+            (255, 0, 255),   # Magenta
+        ]
+        color_idx = (time_ms // cycle_speed) % len(colors)
+        glow_color = colors[color_idx]
+
+        # Draw expanding glow rings
+        for i in range(3):
+            expand = (time_ms // 50 + i * 5) % 15
+            alpha = 150 - expand * 10
+            if alpha > 0:
+                glow_surf = pygame.Surface(
+                    (player_rect.width + expand * 2 + 10, player_rect.height + expand * 2 + 10),
+                    pygame.SRCALPHA
+                )
+                pygame.draw.rect(
+                    glow_surf,
+                    (*glow_color, alpha),
+                    (0, 0, glow_surf.get_width(), glow_surf.get_height()),
+                    border_radius=8
+                )
+                screen.blit(
+                    glow_surf,
+                    (player_rect.x - expand - 5, player_rect.y - expand - 5)
+                )
+
+        # Draw sparkles around player
+        sparkle_count = 6
+        for i in range(sparkle_count):
+            angle = (time_ms / 500 + i * (360 / sparkle_count)) % 360
+            distance = 40 + math.sin(time_ms / 200 + i) * 10
+            sx = player_rect.centerx + math.cos(math.radians(angle)) * distance
+            sy = player_rect.centery + math.sin(math.radians(angle)) * distance
+            sparkle_color = colors[(color_idx + i) % len(colors)]
+            pygame.draw.circle(screen, sparkle_color, (int(sx), int(sy)), 3)
 
     def _draw_timing_feedback(self, screen):
         """Dessine le feedback de timing"""

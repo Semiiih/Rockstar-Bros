@@ -202,6 +202,14 @@ PICKUP_WIDTH = 52
 PICKUP_HEIGHT = 52
 
 # =============================================================================
+# EASTER EGG - MYSTERY BLOCK & STAR POWER
+# =============================================================================
+MYSTERY_BLOCK_SIZE = 52  # Same as pickup for consistency
+STAR_SIZE = 48
+STAR_SPAWN_VELOCITY = -8  # Initial upward velocity when spawned
+STAR_MODE_DURATION = 8000  # 8 seconds of invincibility
+
+# =============================================================================
 # NIVEAUX
 # =============================================================================
 LEVEL_NAMES = ["Centre-ville", "Scene", "Boss Arena"]
@@ -253,7 +261,8 @@ SND_CROUCH = "crouch.wav"
 SND_RUN = "run.wav"
 SND_CONFIRM_MENU = "confirm_menu.wav"
 SND_CONFIRM_STAGE = "confirm_stage.wav"
-SND_BOSS_LAUGH_12 = "rire_boss1_2.wav"
+SND_BOSS_LAUGH_1 = "rire_boss1.wav"
+SND_BOSS_LAUGH_2 = "rire_boss2.wav"
 SND_BOSS_LAUGH_3 = "rire_boss3.wav"
 SND_SHOOT_BOSS = "shoot_boss.wav"
 
@@ -349,6 +358,10 @@ IMG_NOTE = "note.png"
 IMG_MEDIATOR = "mediator.png"
 IMG_AMPLI = "ampli.png"
 IMG_HEALTH = "health.png"
+
+# Easter Egg - Mystery Block & Star
+IMG_MYSTERY_BLOCK = "bloc_mario.png"
+IMG_STAR = "etoile_mario.png"
 
 # Backgrounds
 IMG_BG_MENU = "bg_menu.png"

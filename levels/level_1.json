@@ -99,19 +99,23 @@
         { "x": 3600, "type": "rival" }
       ],
 
-      "pickups": [
-        { "x": 350, "y": 460, "type": "note" },
-        { "x": 550, "y": 360, "type": "note" },
-        { "x": 750, "y": 260, "type": "mediator" },
-        { "x": 1150, "y": 440, "type": "note" },
-        { "x": 1450, "y": 340, "type": "ampli" },
-        { "x": 1650, "y": 240, "type": "note" },
-        { "x": 2050, "y": 460, "type": "note" },
-        { "x": 2450, "y": 360, "type": "mediator" },
-        { "x": 2750, "y": 260, "type": "note" },
-        { "x": 3050, "y": 410, "type": "ampli" },
-        { "x": 3450, "y": 340, "type": "note" }
-      ],
+            "pickups": [
+                {"x": 350, "y": 460, "type": "note"},
+                {"x": 550, "y": 360, "type": "note"},
+                {"x": 750, "y": 260, "type": "mediator"},
+                {"x": 1150, "y": 440, "type": "note"},
+                {"x": 1450, "y": 340, "type": "ampli"},
+                {"x": 1650, "y": 240, "type": "note"},
+                {"x": 2050, "y": 460, "type": "note"},
+                {"x": 2450, "y": 360, "type": "mediator"},
+                {"x": 2750, "y": 260, "type": "note"},
+                {"x": 3050, "y": 410, "type": "ampli"},
+                {"x": 3450, "y": 340, "type": "note"}
+            ],
+
+            "mystery_blocks": [
+                {"x": 1675, "y": 100}
+            ],
 
       "boss": null
     },

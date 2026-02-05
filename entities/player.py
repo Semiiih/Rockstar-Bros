@@ -5,11 +5,12 @@ Gere le joueur: mouvements, animations, combat
 
 import pygame
 from settings import (
-    PURPLE, ORANGE,
+    PURPLE, ORANGE, YELLOW,
     GRAVITY, MAX_FALL_SPEED,
     PLAYER_SPEED, PLAYER_JUMP_FORCE, PLAYER_MAX_HEALTH,
     PLAYER_INVINCIBILITY_TIME, PLAYER_WIDTH, PLAYER_HEIGHT,
     PROJECTILE_COOLDOWN, ULTIMATE_CHARGE_MAX,
+    STAR_MODE_DURATION,
     IMG_PLAYER_DIR,
     IMG_PLAYER1_IDLE, IMG_PLAYER1_RUN1, IMG_PLAYER1_RUN2, IMG_PLAYER1_JUMP, IMG_PLAYER1_ATTACK,
     IMG_PLAYER2_IDLE, IMG_PLAYER2_RUN1, IMG_PLAYER2_RUN2, IMG_PLAYER2_JUMP, IMG_PLAYER2_ATTACK,
@@ -66,8 +67,17 @@ class Player(pygame.sprite.Sprite):
         self.just_jumped = False
         self.just_crouched = False
 
+        # Flag for head bump detection (Easter Egg)
+        self.head_bumped_platform = None
+
         # Debug
         self.debug_invincible = False
+
+        # Star Mode (Easter Egg power-up)
+        self.star_mode = False
+        self.star_mode_timer = 0
+        self.star_mode_flash_timer = 0
+        self.star_mode_just_ended = False  # Flag pour detecter la fin du star mode
 
     def _load_images(self):
         """Charge les images du joueur"""
@@ -251,6 +261,15 @@ class Player(pygame.sprite.Sprite):
             if self.invincible_timer <= 0:
                 self.invincible = False
 
+        # Star mode timer
+        if self.star_mode:
+            self.star_mode_timer -= dt_ms
+            self.star_mode_flash_timer += dt_ms
+            if self.star_mode_timer <= 0:
+                self.star_mode = False
+                self.star_mode_timer = 0
+                self.star_mode_just_ended = True  # Signal pour restaurer la musique
+
         # Animation
         self._update_animation(dt_ms)
 
@@ -311,9 +330,10 @@ class Player(pygame.sprite.Sprite):
                         self.rect.bottom = platform.rect.top
                         self.velocity_y = 0
                         self.on_ground = True
-                    else:  # Monte vers le haut
+                    else:  # Monte vers le haut (head bump!)
                         self.rect.top = platform.rect.bottom
                         self.velocity_y = 0
+                        self.head_bumped_platform = platform  # Store for Easter Egg
                     return
 
     def _update_animation(self, dt_ms):
@@ -358,7 +378,7 @@ class Player(pygame.sprite.Sprite):
 
     def take_damage(self, amount=1):
         """Le joueur prend des degats"""
-        if self.invincible or self.debug_invincible:
+        if self.invincible or self.debug_invincible or self.star_mode:
             return False
 
         self.health -= amount
@@ -366,6 +386,12 @@ class Player(pygame.sprite.Sprite):
         self.invincible_timer = PLAYER_INVINCIBILITY_TIME
 
         return True
+
+    def activate_star_mode(self):
+        """Activate star power - invincibility and contact kill"""
+        self.star_mode = True
+        self.star_mode_timer = STAR_MODE_DURATION
+        self.star_mode_flash_timer = 0
 
     def heal(self, amount=1):
         """Soigne le joueur"""

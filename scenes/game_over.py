@@ -10,7 +10,7 @@ from settings import (
     STATE_GAMEPLAY, STATE_MENU, CONTROLS,
     IMG_DIR, IMG_GAMEOVER,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
-    SND_DIR, SND_BOSS_LAUGH, SND_MENU_CLICK,
+    SND_DIR, SND_BOSS_LAUGH_1, SND_BOSS_LAUGH_2, SND_BOSS_LAUGH_3, SND_MENU_CLICK,
 )
 
 
@@ -55,17 +55,29 @@ class GameOverScene(Scene):
         self.selected_option = 0
         self.final_score = self.game.game_data.get("score", 0)
 
-        # Jouer le son de defaite (rire du boss)
-        try:
-            music_path = str(SND_DIR / SND_BOSS_LAUGH)
+        # Jouer le son de defaite (rire du boss) seulement si pas mort par chute
+        # Chaque niveau a son propre rire de boss
+        death_by_fall = self.game.game_data.get("death_by_fall", False)
+        if not death_by_fall:
             try:
-                pygame.mixer.music.load(music_path)
-            except pygame.error:
-                pygame.mixer.music.load(music_path, namehint=".mp3")
-            pygame.mixer.music.set_volume(0.6)
-            pygame.mixer.music.play(-1)
-        except (pygame.error, FileNotFoundError):
-            pass
+                # Choisir le son de rire selon le niveau
+                current_level = self.game.game_data.get("selected_level", 1)
+                if current_level == 1:
+                    laugh_sound = SND_BOSS_LAUGH_1
+                elif current_level == 2:
+                    laugh_sound = SND_BOSS_LAUGH_2
+                else:
+                    laugh_sound = SND_BOSS_LAUGH_3
+
+                music_path = str(SND_DIR / laugh_sound)
+                try:
+                    pygame.mixer.music.load(music_path)
+                except pygame.error:
+                    pygame.mixer.music.load(music_path, namehint=".mp3")
+                pygame.mixer.music.set_volume(0.6)
+                pygame.mixer.music.play()  # Jouer une seule fois (pas en boucle)
+            except (pygame.error, FileNotFoundError):
+                pass
 
         # Charger l'image de game over
         try:
