@@ -127,6 +127,7 @@ class Enemy(pygame.sprite.Sprite):
         self.patrol_distance = 100
         self.start_x = x
         self.hit_flash = 0
+        self.direction_change_cooldown = 0  # Timer anti-oscillation
 
         # Animation
         self.state = "idle"  # idle, run, attack, dead
@@ -340,27 +341,37 @@ class Enemy(pygame.sprite.Sprite):
                 if self.shoot_anim_timer <= 0:
                     self.state = "idle"
             else:
+                # Decrementer le timer anti-oscillation
+                if self.direction_change_cooldown > 0:
+                    self.direction_change_cooldown -= dt_ms
+
                 # Tous les autres ennemis (hater, hater_flying, rival) BOUGENT et FRAPPENT
                 if dist_to_player_x < self.detection_range:
                     # Zone morte: si le joueur est trop proche horizontalement, ne pas bouger
                     # Evite l'effet "toupie" quand le joueur est au-dessus
-                    if dist_to_player_x > 25:
+                    if dist_to_player_x > 40:
                         # Poursuit le joueur (sauf si bloque par un autre ennemi)
-                        if player_rect.centerx < self.rect.centerx:
+                        player_is_left = player_rect.centerx < self.rect.centerx
+
+                        # Changer de direction seulement si le cooldown est termine
+                        if self.direction_change_cooldown <= 0:
+                            new_facing = not player_is_left
+                            if new_facing != self.facing_right:
+                                self.facing_right = new_facing
+                                self.direction_change_cooldown = 300  # 300ms avant prochain changement
+
+                        if player_is_left:
                             if not blocked_left:
                                 self.rect.x -= self.speed
                                 is_moving = True
-                            self.facing_right = False
                         else:
                             if not blocked_right:
                                 self.rect.x += self.speed
                                 is_moving = True
-                            self.facing_right = True
                         if is_moving:
                             self.state = "run"
                     else:
-                        # Trop proche horizontalement, s'arreter et regarder le joueur
-                        self.facing_right = player_rect.centerx > self.rect.centerx
+                        # Trop proche horizontalement, s'arreter
                         self.state = "idle"
 
                     # Attaque au corps a corps si tres proche
@@ -368,14 +379,20 @@ class Enemy(pygame.sprite.Sprite):
                         self.state = "attack"
                 else:
                     # Patrouille (sauf si bloque)
+                    # Verifier si on doit changer de direction (avec cooldown)
+                    if abs(self.rect.x - self.start_x) > self.patrol_distance:
+                        if self.direction_change_cooldown <= 0:
+                            self.patrol_direction *= -1
+                            self.facing_right = self.patrol_direction > 0
+                            self.direction_change_cooldown = 300
+                            # Recentrer le start_x pour eviter oscillation
+                            self.start_x = self.rect.x
+
                     move_dir = self.speed * self.patrol_direction
                     can_move = (move_dir < 0 and not blocked_left) or (move_dir > 0 and not blocked_right)
                     if can_move:
                         self.rect.x += move_dir
                         is_moving = True
-                    if abs(self.rect.x - self.start_x) > self.patrol_distance:
-                        self.patrol_direction *= -1
-                        self.facing_right = self.patrol_direction > 0
                     if is_moving:
                         self.state = "run"
                     else:
@@ -407,9 +424,15 @@ class Enemy(pygame.sprite.Sprite):
     def draw(self, screen, camera_x):
         """Dessine l'ennemi avec effets"""
         img = self.image
-        # L'image de base regarde a gauche, donc flip si regarde a droite
-        if self.facing_right:
-            img = pygame.transform.flip(img, True, False)
+        # Les haters ont leur image orientee a droite, les rivals a gauche
+        if self.enemy_type in ("hater", "hater_flying"):
+            # Haters: image regarde a droite, flip si regarde a gauche
+            if not self.facing_right:
+                img = pygame.transform.flip(img, True, False)
+        else:
+            # Rivals: image regarde a gauche, flip si regarde a droite
+            if self.facing_right:
+                img = pygame.transform.flip(img, True, False)
 
         draw_rect = self.rect.move(-camera_x, 0)
 
