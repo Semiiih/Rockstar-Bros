@@ -10,7 +10,7 @@ from settings import (
     STATE_GAMEPLAY, STATE_MENU, CONTROLS,
     IMG_DIR, IMG_GAMEOVER,
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
-    SND_DIR, SND_BOSS_LAUGH,
+    SND_DIR, SND_BOSS_LAUGH, SND_MENU_CLICK,
 )
 
 
@@ -29,6 +29,14 @@ class GameOverScene(Scene):
 
         self.final_score = 0
         self.background = None
+
+        # Son de navigation
+        self.click_sfx = None
+        try:
+            self.click_sfx = pygame.mixer.Sound(str(SND_DIR / SND_MENU_CLICK))
+            self.click_sfx.set_volume(0.5)
+        except (pygame.error, FileNotFoundError):
+            pass
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le game over"""
@@ -72,8 +80,12 @@ class GameOverScene(Scene):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
                 self.selected_option = (self.selected_option - 1) % len(self.options)
+                if self.click_sfx:
+                    self.click_sfx.play()
             elif event.key == pygame.K_DOWN:
                 self.selected_option = (self.selected_option + 1) % len(self.options)
+                if self.click_sfx:
+                    self.click_sfx.play()
             elif event.key in CONTROLS["confirm"]:
                 self._select_option()
 

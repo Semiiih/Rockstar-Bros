@@ -64,6 +64,7 @@ class Player(pygame.sprite.Sprite):
 
         # Flags pour le son
         self.just_jumped = False
+        self.just_crouched = False
 
         # Debug
         self.debug_invincible = False
@@ -166,6 +167,7 @@ class Player(pygame.sprite.Sprite):
             self.is_crouching = True
             # Reduire la hitbox si on vient de s'accroupir
             if not was_crouching:
+                self.just_crouched = True
                 bottom = self.rect.bottom
                 self.rect.height = self.crouch_height
                 self.rect.bottom = bottom

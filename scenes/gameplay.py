@@ -27,7 +27,8 @@ from settings import (
     FONT_METAL_MANIA, FONT_ROAD_RAGE,
     HUD_MARGIN, HUD_HEALTH_SIZE,
     SND_DIR, SND_VICTORY, SND_JUMP, SND_SHOOT, SND_PICKUP,
-    SND_ENEMY_DEATH, SND_DEATH,
+    SND_ENEMY_DEATH, SND_DEATH, SND_HURT, SND_MENU_CLICK,
+    SND_CROUCH, SND_RUN,
 )
 
 
@@ -115,6 +116,9 @@ class GameplayScene(Scene):
         self.sfx = {}
         self._load_sfx()
 
+        # Flag pour le son de course en boucle
+        self._run_sfx_playing = False
+
     def _load_sfx(self):
         """Charge les effets sonores"""
         sfx_files = {
@@ -123,6 +127,10 @@ class GameplayScene(Scene):
             "pickup": SND_PICKUP,
             "enemy_death": SND_ENEMY_DEATH,
             "death": SND_DEATH,
+            "hurt": SND_HURT,
+            "menu_click": SND_MENU_CLICK,
+            "crouch": SND_CROUCH,
+            "run": SND_RUN,
         }
         for key, filename in sfx_files.items():
             try:
@@ -132,11 +140,23 @@ class GameplayScene(Scene):
             except (pygame.error, FileNotFoundError):
                 self.sfx[key] = None
 
+        # Volume plus fort pour le son de course
+        if self.sfx.get("run"):
+            self.sfx["run"].set_volume(0.8)
+
     def _play_sfx(self, name):
         """Joue un effet sonore"""
         sound = self.sfx.get(name)
         if sound:
             sound.play()
+
+    def _stop_run_sfx(self):
+        """Arrete le son de course s'il est en cours"""
+        if self._run_sfx_playing:
+            run_sound = self.sfx.get("run")
+            if run_sound:
+                run_sound.stop()
+            self._run_sfx_playing = False
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
@@ -337,8 +357,10 @@ class GameplayScene(Scene):
             if self.victory_menu_active:
                 if event.key == pygame.K_UP:
                     self.victory_menu_selected = (self.victory_menu_selected - 1) % len(self.victory_menu_options)
+                    self._play_sfx("menu_click")
                 elif event.key == pygame.K_DOWN:
                     self.victory_menu_selected = (self.victory_menu_selected + 1) % len(self.victory_menu_options)
+                    self._play_sfx("menu_click")
                 elif event.key in CONTROLS["confirm"]:
                     if self.victory_menu_selected == 0:  # Continuer -> map des niveaux
                         self._complete_stage()
@@ -348,6 +370,7 @@ class GameplayScene(Scene):
 
             # Pause (pas pendant l'ultime ou la mort du boss)
             if event.key in CONTROLS["pause"] and not self.ultimate_active and not self.boss_death_active:
+                self._stop_run_sfx()
                 self.game.change_scene(STATE_PAUSE)
                 return
 
@@ -405,6 +428,9 @@ class GameplayScene(Scene):
             return
         if self.ultimate_active:
             return  # Deja en cours
+
+        # Arreter le son de course
+        self._stop_run_sfx()
 
         # Consommer la charge
         self.player.use_ultimate()
@@ -530,6 +556,24 @@ class GameplayScene(Scene):
             self._play_sfx("jump")
             self.player.just_jumped = False
 
+        # Son d'accroupissement
+        if self.player.just_crouched:
+            self._play_sfx("crouch")
+            self.player.just_crouched = False
+
+        # Son de course (en boucle tant qu'on court)
+        is_running = self.player.velocity_x != 0 and self.player.on_ground and not self.player.is_crouching
+        if is_running and not self._run_sfx_playing:
+            run_sound = self.sfx.get("run")
+            if run_sound:
+                run_sound.play(loops=-1)
+                self._run_sfx_playing = True
+        elif not is_running and self._run_sfx_playing:
+            run_sound = self.sfx.get("run")
+            if run_sound:
+                run_sound.stop()
+            self._run_sfx_playing = False
+
         # Mise a jour des entites
         self.player.update(dt, self.platforms)
 
@@ -586,6 +630,7 @@ class GameplayScene(Scene):
 
         # Verifier game over
         if self.player.health <= 0:
+            self._stop_run_sfx()
             self.game.game_data["score"] = self.game.game_data.get("score", 0)
             self.game.change_scene(STATE_GAME_OVER)
 
@@ -727,6 +772,7 @@ class GameplayScene(Scene):
             if proj.rect.colliderect(self.player.rect):
                 proj.kill()
                 if self.player.take_damage(proj.damage):
+                    self._play_sfx("hurt")
                     self.game.game_data["lives"] = self.player.health
 
         # Projectiles ennemis -> Joueur
@@ -734,6 +780,7 @@ class GameplayScene(Scene):
             if proj.rect.colliderect(self.player.rect):
                 proj.kill()
                 if self.player.take_damage(proj.damage):
+                    self._play_sfx("hurt")
                     self.game.game_data["lives"] = self.player.health
 
         # Ennemis -> Joueur (contact)
@@ -763,6 +810,7 @@ class GameplayScene(Scene):
                 else:
                     # Collision normale - le joueur prend des degats
                     if self.player.take_damage(enemy.damage):
+                        self._play_sfx("hurt")
                         self.game.game_data["lives"] = self.player.health
                         # Decaler le joueur de quelques pixels pour eviter la superposition
                         # Direction: vers le dos du joueur (oppose a la direction qu'il regarde)
@@ -824,6 +872,7 @@ class GameplayScene(Scene):
 
     def _start_celebration(self):
         """Demarre l'animation de mort du boss avec zoom"""
+        self._stop_run_sfx()
         self.celebration_active = True
         self.celebration_timer = 0
 
@@ -925,6 +974,12 @@ class GameplayScene(Scene):
             screen.blit(self.background, (WIDTH - bg_offset, 0))
         else:
             self._draw_placeholder_bg(screen)
+
+        # Voile sombre pour attenuer les couleurs du fond
+        if not hasattr(self, '_bg_overlay'):
+            self._bg_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            self._bg_overlay.fill((0, 0, 0, 90))
+        screen.blit(self._bg_overlay, (0, 0))
 
         # Plateformes
         for platform in self.platforms:

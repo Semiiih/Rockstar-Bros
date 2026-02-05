@@ -245,8 +245,17 @@ SND_SHOOT = "player_shoot.wav"
 SND_PICKUP = "bonus_player.wav"
 SND_ENEMY_DEATH = "ennemi_mort.wav"
 SND_DEATH = "death.wav"
+SND_HURT = "bruitage_douleur.wav"
 SND_VICTORY = "victory_boss.wav"
 SND_BOSS_LAUGH = "boss_rire.wav"
+SND_MENU_CLICK = "click_menu.wav"
+SND_CROUCH = "crouch.wav"
+SND_RUN = "run.wav"
+SND_CONFIRM_MENU = "confirm_menu.wav"
+SND_CONFIRM_STAGE = "confirm_stage.wav"
+SND_BOSS_LAUGH_12 = "rire_boss1_2.wav"
+SND_BOSS_LAUGH_3 = "rire_boss3.wav"
+SND_SHOOT_BOSS = "shoot_boss.wav"
 
 # =============================================================================
 # IMAGES (noms des fichiers)
