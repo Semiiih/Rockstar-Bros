@@ -11,7 +11,7 @@
             "stage_id": 1,
             "name": "Les Stands",
             "width": 3500,
-            "background": "bg_level2_1.png",
+            "background": "level2/bg1.png",
             "music": "level1.wav",
             "player_spawn": {"x": 100, "y": 600},
 
@@ -74,7 +74,7 @@
             "stage_id": 2,
             "name": "La Grande Scene",
             "width": 4500,
-            "background": "bg_level2_2.png",
+            "background": "level2/bg2.png",
             "music": "level1.wav",
             "player_spawn": {"x": 100, "y": 600},
 
@@ -151,7 +151,7 @@
             "stage_id": 3,
             "name": "La Star Dechu",
             "width": 1400,
-            "background": "bg_boss2.png",
+            "background": "level2/bg3.png",
             "music": "combat_final.wav",
             "player_spawn": {"x": 100, "y": 600},
             "is_boss_stage": true,
