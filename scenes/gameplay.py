@@ -999,20 +999,27 @@ class GameplayScene(Scene):
 
         # Dessiner l'image de mort du boss avec zoom et fade
         if self.boss_death_active and self.boss_death_image and self.boss_death_alpha > 0:
-            # Position relative a la camera
-            draw_x = self.boss_death_pos[0] - self.camera_x
-            draw_y = self.boss_death_pos[1]
+            # Centrer l'image au milieu de l'ecran (pas sur la position du boss)
+            draw_x = WIDTH // 2
+            draw_y = HEIGHT // 2
+
+            # Ajuster le zoom selon le type de boss (boss2 et boss3 ont des images plus grandes)
+            zoom_factor = self.boss_death_zoom
+            if self.boss_type_dead == "boss2":
+                zoom_factor = self.boss_death_zoom * 0.7  # Reduire de 30%
+            elif self.boss_type_dead == "boss3":
+                zoom_factor = self.boss_death_zoom * 0.6  # Reduire de 40%
 
             # Appliquer le zoom
             original_size = self.boss_death_image.get_size()
-            new_width = int(original_size[0] * self.boss_death_zoom)
-            new_height = int(original_size[1] * self.boss_death_zoom)
+            new_width = int(original_size[0] * zoom_factor)
+            new_height = int(original_size[1] * zoom_factor)
             scaled_img = pygame.transform.scale(self.boss_death_image, (new_width, new_height))
 
             # Appliquer l'alpha (transparence)
             scaled_img.set_alpha(self.boss_death_alpha)
 
-            # Centrer l'image
+            # Centrer l'image au milieu de l'ecran
             img_rect = scaled_img.get_rect(center=(draw_x, draw_y))
             screen.blit(scaled_img, img_rect)
 
