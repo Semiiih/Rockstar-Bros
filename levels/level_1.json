@@ -1,152 +1,150 @@
 {
-    "id": 1,
-    "name": "La Nuit du Concert",
-    "description": "Tes premiers pas vers la gloire rock!",
-    "difficulty": "easy",
-    "icon": "level1_icon.png",
-    "unlock_condition": null,
+  "id": 1,
+  "name": "La Nuit du Concert",
+  "description": "Premiers pas vers la gloire rock!",
+  "difficulty": "easy",
+  "icon": "level1_icon.png",
+  "unlock_condition": null,
 
-    "stages": [
-        {
-            "stage_id": 1,
-            "name": "En ville",
-            "width": 3000,
-            "background": "bg_level1.png",
-            "music": "level1.wav",
-            "player_spawn": {"x": 100, "y": 600},
+  "stages": [
+    {
+      "stage_id": 1,
+      "name": "En ville",
+      "width": 3000,
+      "background": "bg_level1.png",
+      "music": "level1.wav",
+      "player_spawn": { "x": 100, "y": 600 },
 
-            "ground_segments": [
-                {"x": 0, "y": 600, "width": 700},
-                {"x": 800, "y": 600, "width": 500},
-                {"x": 1400, "y": 600, "width": 600},
-                {"x": 2100, "y": 600, "width": 900}
-            ],
+      "ground_segments": [
+        { "x": 0, "y": 600, "width": 700 },
+        { "x": 800, "y": 600, "width": 500 },
+        { "x": 1400, "y": 600, "width": 600 },
+        { "x": 2100, "y": 600, "width": 900 }
+      ],
 
-            "platforms": [
-                {"x": 300, "y": 520, "width": 200, "height": 30},
-                {"x": 600, "y": 450, "width": 150, "height": 30},
-                {"x": 720, "y": 550, "width": 100, "height": 30},
-                {"x": 900, "y": 380, "width": 180, "height": 30},
-                {"x": 1200, "y": 480, "width": 200, "height": 30},
-                {"x": 1320, "y": 550, "width": 100, "height": 30},
-                {"x": 1600, "y": 400, "width": 150, "height": 30},
-                {"x": 2000, "y": 550, "width": 120, "height": 30},
-                {"x": 2400, "y": 450, "width": 180, "height": 30},
-                {"x": 2700, "y": 520, "width": 150, "height": 30}
-            ],
+      "platforms": [
+        { "x": 300, "y": 520, "width": 200, "height": 30 },
+        { "x": 600, "y": 450, "width": 150, "height": 30 },
+        { "x": 720, "y": 550, "width": 100, "height": 30 },
+        { "x": 900, "y": 380, "width": 180, "height": 30 },
+        { "x": 1200, "y": 480, "width": 200, "height": 30 },
+        { "x": 1320, "y": 550, "width": 100, "height": 30 },
+        { "x": 1600, "y": 400, "width": 150, "height": 30 },
+        { "x": 2000, "y": 550, "width": 120, "height": 30 },
+        { "x": 2400, "y": 450, "width": 180, "height": 30 },
+        { "x": 2700, "y": 520, "width": 150, "height": 30 }
+      ],
 
-            "enemies": [
-                {"x": 500, "type": "hater"},
-                {"x": 800, "type": "hater"},
-                {"x": 1100, "type": "hater"},
-                {"x": 1500, "type": "hater"},
-                {"x": 1900, "type": "hater"},
-                {"x": 2300, "type": "hater"}
-            ],
+      "enemies": [
+        { "x": 500, "type": "hater" },
+        { "x": 800, "type": "hater" },
+        { "x": 1100, "type": "hater" },
+        { "x": 1500, "type": "hater" },
+        { "x": 1900, "type": "hater" },
+        { "x": 2300, "type": "hater" }
+      ],
 
-            "pickups": [
-                {"x": 400, "y": 480, "type": "note"},
-                {"x": 700, "y": 410, "type": "note"},
-                {"x": 1000, "y": 340, "type": "mediator"},
-                {"x": 1400, "y": 440, "type": "note"},
-                {"x": 1800, "y": 360, "type": "note"},
-                {"x": 2200, "y": 400, "type": "mediator"}
-            ],
+      "pickups": [
+        { "x": 400, "y": 480, "type": "note" },
+        { "x": 700, "y": 410, "type": "note" },
+        { "x": 1000, "y": 340, "type": "mediator" },
+        { "x": 1400, "y": 440, "type": "note" },
+        { "x": 1800, "y": 360, "type": "note" },
+        { "x": 2200, "y": 400, "type": "mediator" }
+      ],
 
-            "boss": null
-        },
-        {
-            "stage_id": 2,
-            "name": "Entrée en concert",
-            "width": 4000,
-            "background": "bg_level2.png",
-            "music": "level1.wav",
-            "player_spawn": {"x": 100, "y": 600},
+      "boss": null
+    },
+    {
+      "stage_id": 2,
+      "name": "Entrée en concert",
+      "width": 4000,
+      "background": "bg_level2.png",
+      "music": "level1.wav",
+      "player_spawn": { "x": 100, "y": 600 },
 
-            "ground_segments": [
-                {"x": 0, "y": 600, "width": 800},
-                {"x": 1000, "y": 600, "width": 600},
-                {"x": 1800, "y": 600, "width": 800},
-                {"x": 2800, "y": 600, "width": 1200}
-            ],
+      "ground_segments": [
+        { "x": 0, "y": 600, "width": 800 },
+        { "x": 1000, "y": 600, "width": 600 },
+        { "x": 1800, "y": 600, "width": 800 },
+        { "x": 2800, "y": 600, "width": 1200 }
+      ],
 
-            "platforms": [
-                {"x": 300, "y": 500, "width": 150, "height": 30},
-                {"x": 500, "y": 400, "width": 120, "height": 30},
-                {"x": 700, "y": 300, "width": 150, "height": 30},
-                {"x": 850, "y": 450, "width": 100, "height": 30},
-                {"x": 950, "y": 550, "width": 80, "height": 30},
-                {"x": 1100, "y": 480, "width": 150, "height": 30},
-                {"x": 1400, "y": 380, "width": 120, "height": 30},
-                {"x": 1600, "y": 280, "width": 150, "height": 30},
-                {"x": 1700, "y": 450, "width": 100, "height": 30},
-                {"x": 2000, "y": 500, "width": 200, "height": 30},
-                {"x": 2400, "y": 400, "width": 150, "height": 30},
-                {"x": 2700, "y": 300, "width": 180, "height": 30},
-                {"x": 3000, "y": 450, "width": 150, "height": 30},
-                {"x": 3400, "y": 380, "width": 200, "height": 30}
-            ],
+      "platforms": [
+        { "x": 300, "y": 500, "width": 150, "height": 30 },
+        { "x": 500, "y": 400, "width": 120, "height": 30 },
+        { "x": 700, "y": 300, "width": 150, "height": 30 },
+        { "x": 850, "y": 450, "width": 100, "height": 30 },
+        { "x": 950, "y": 550, "width": 80, "height": 30 },
+        { "x": 1100, "y": 480, "width": 150, "height": 30 },
+        { "x": 1400, "y": 380, "width": 120, "height": 30 },
+        { "x": 1600, "y": 280, "width": 150, "height": 30 },
+        { "x": 1700, "y": 450, "width": 100, "height": 30 },
+        { "x": 2000, "y": 500, "width": 200, "height": 30 },
+        { "x": 2400, "y": 400, "width": 150, "height": 30 },
+        { "x": 2700, "y": 300, "width": 180, "height": 30 },
+        { "x": 3000, "y": 450, "width": 150, "height": 30 },
+        { "x": 3400, "y": 380, "width": 200, "height": 30 }
+      ],
 
-            "enemies": [
-                {"x": 400, "type": "hater"},
-                {"x": 600, "type": "hater"},
-                {"x": 1200, "type": "rival"},
-                {"x": 1500, "type": "hater"},
-                {"x": 2100, "type": "rival"},
-                {"x": 2500, "type": "hater"},
-                {"x": 2900, "type": "rival"},
-                {"x": 3200, "type": "hater"},
-                {"x": 3600, "type": "rival"}
-            ],
+      "enemies": [
+        { "x": 400, "type": "hater" },
+        { "x": 600, "type": "hater" },
+        { "x": 1200, "type": "rival" },
+        { "x": 1500, "type": "hater" },
+        { "x": 2100, "type": "rival" },
+        { "x": 2500, "type": "hater" },
+        { "x": 2900, "type": "rival" },
+        { "x": 3200, "type": "hater" },
+        { "x": 3600, "type": "rival" }
+      ],
 
-            "pickups": [
-                {"x": 350, "y": 460, "type": "note"},
-                {"x": 550, "y": 360, "type": "note"},
-                {"x": 750, "y": 260, "type": "mediator"},
-                {"x": 1150, "y": 440, "type": "note"},
-                {"x": 1450, "y": 340, "type": "ampli"},
-                {"x": 1650, "y": 240, "type": "note"},
-                {"x": 2050, "y": 460, "type": "note"},
-                {"x": 2450, "y": 360, "type": "mediator"},
-                {"x": 2750, "y": 260, "type": "note"},
-                {"x": 3050, "y": 410, "type": "ampli"},
-                {"x": 3450, "y": 340, "type": "note"}
-            ],
+      "pickups": [
+        { "x": 350, "y": 460, "type": "note" },
+        { "x": 550, "y": 360, "type": "note" },
+        { "x": 750, "y": 260, "type": "mediator" },
+        { "x": 1150, "y": 440, "type": "note" },
+        { "x": 1450, "y": 340, "type": "ampli" },
+        { "x": 1650, "y": 240, "type": "note" },
+        { "x": 2050, "y": 460, "type": "note" },
+        { "x": 2450, "y": 360, "type": "mediator" },
+        { "x": 2750, "y": 260, "type": "note" },
+        { "x": 3050, "y": 410, "type": "ampli" },
+        { "x": 3450, "y": 340, "type": "note" }
+      ],
 
-            "boss": null
-        },
-        {
-            "stage_id": 3,
-            "name": "Le Rival",
-            "width": 1200,
-            "background": "bg_boss.png",
-            "music": "combat_final.wav",
-            "player_spawn": {"x": 100, "y": 600},
-            "is_boss_stage": true,
+      "boss": null
+    },
+    {
+      "stage_id": 3,
+      "name": "Le Rival",
+      "width": 1200,
+      "background": "bg_boss.png",
+      "music": "combat_final.wav",
+      "player_spawn": { "x": 100, "y": 600 },
+      "is_boss_stage": true,
 
-            "ground_segments": [
-                {"x": 0, "y": 600, "width": 1200}
-            ],
+      "ground_segments": [{ "x": 0, "y": 600, "width": 1200 }],
 
-            "platforms": [
-                {"x": 200, "y": 500, "width": 150, "height": 30},
-                {"x": 850, "y": 500, "width": 150, "height": 30},
-                {"x": 525, "y": 400, "width": 150, "height": 30}
-            ],
+      "platforms": [
+        { "x": 200, "y": 500, "width": 150, "height": 30 },
+        { "x": 850, "y": 500, "width": 150, "height": 30 },
+        { "x": 525, "y": 400, "width": 150, "height": 30 }
+      ],
 
-            "enemies": [],
+      "enemies": [],
 
-            "pickups": [],
+      "pickups": [],
 
-            "boss": {
-                "x": 1000,
-                "type": "boss"
-            }
-        }
-    ],
-
-    "rewards": {
-        "completion_score": 5000,
-        "stars_thresholds": [3000, 7000, 12000]
+      "boss": {
+        "x": 1000,
+        "type": "boss"
+      }
     }
+  ],
+
+  "rewards": {
+    "completion_score": 5000,
+    "stars_thresholds": [3000, 7000, 12000]
+  }
 }

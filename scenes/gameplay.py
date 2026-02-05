@@ -124,6 +124,11 @@ class GameplayScene(Scene):
         self._boss_laugh_timer = 0
         self._boss_laugh_type = None  # "boss"/"boss2" ou "boss3"
 
+        # Transition d'intro avant un combat de boss
+        self.boss_intro_active = False
+        self.boss_intro_timer = 0
+        self.boss_intro_duration = 3500  # 3.5 secondes
+
     def _load_sfx(self):
         """Charge les effets sonores"""
         sfx_files = {
@@ -278,6 +283,14 @@ class GameplayScene(Scene):
         # Reset affichage des degats
         self.damage_numbers = []
 
+        # Activer l'intro boss si c'est un stage de boss
+        is_boss_stage = self.stage_data and self.stage_data.get('is_boss_stage', False)
+        if is_boss_stage and self.boss:
+            self.boss_intro_active = True
+            self.boss_intro_timer = 0
+        else:
+            self.boss_intro_active = False
+
         # Jouer la musique du niveau
         self._play_stage_music()
 
@@ -371,6 +384,10 @@ class GameplayScene(Scene):
 
     def handle_event(self, event):
         """Gere les evenements"""
+        # Bloquer les inputs pendant l'intro boss
+        if self.boss_intro_active:
+            return
+
         if event.type == pygame.KEYDOWN:
             # Menu de victoire apres mort du boss
             if self.victory_menu_active:
@@ -552,6 +569,13 @@ class GameplayScene(Scene):
 
         # Timer pour animations visuelles (toujours actif)
         self.animation_time += dt
+
+        # Pendant l'intro boss: compte a rebours avant le combat
+        if self.boss_intro_active:
+            self.boss_intro_timer += dt_ms
+            if self.boss_intro_timer >= self.boss_intro_duration:
+                self.boss_intro_active = False
+            return
 
         # Pendant l'ultime: TOUT EST FIGE sauf la sequence Guitar Hero
         if self.ultimate_active:
@@ -1090,6 +1114,91 @@ class GameplayScene(Scene):
         # Celebration (apres avoir battu le boss)
         if self.celebration_active:
             self._draw_celebration(screen)
+
+        # Intro boss (avant le combat)
+        if self.boss_intro_active:
+            self._draw_boss_intro(screen)
+
+    def _draw_boss_intro(self, screen):
+        """Dessine la transition d'intro avant un combat de boss"""
+        progress = self.boss_intro_timer / self.boss_intro_duration  # 0 -> 1
+
+        # Phase 1 (0-30%): Fond noir qui apparait + "PREPAREZ-VOUS"
+        # Phase 2 (30-70%): "AU COMBAT !" avec pulsation
+        # Phase 3 (70-100%): Tout disparait progressivement
+
+        # Overlay noir avec alpha variable
+        if progress < 0.3:
+            # Fade in
+            alpha = int(200 * (progress / 0.3))
+        elif progress > 0.7:
+            # Fade out
+            alpha = int(200 * (1 - (progress - 0.7) / 0.3))
+        else:
+            alpha = 200
+
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, alpha))
+        screen.blit(overlay, (0, 0))
+
+        # Texte "PREPAREZ-VOUS" - apparait en phase 1 et reste en phase 2
+        if progress >= 0.1:
+            text_alpha = 255
+            if progress > 0.7:
+                text_alpha = int(255 * (1 - (progress - 0.7) / 0.3))
+
+            try:
+                font_title = pygame.font.Font(str(FONT_METAL_MANIA), 64)
+            except (pygame.error, FileNotFoundError):
+                font_title = pygame.font.Font(None, 64)
+
+            # "PREPAREZ-VOUS" avec ombre
+            title_surf = font_title.render("PREPAREZ-VOUS", True, WHITE)
+            title_surf.set_alpha(text_alpha)
+            shadow_surf = font_title.render("PREPAREZ-VOUS", True, (50, 50, 50))
+            shadow_surf.set_alpha(text_alpha)
+            title_rect = title_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 60))
+            screen.blit(shadow_surf, title_rect.move(3, 3))
+            screen.blit(title_surf, title_rect)
+
+        # "AU COMBAT !" - apparait en phase 2 avec pulsation
+        if progress >= 0.3:
+            sub_alpha = 255
+            if progress < 0.4:
+                # Apparition rapide
+                sub_alpha = int(255 * ((progress - 0.3) / 0.1))
+            elif progress > 0.7:
+                sub_alpha = int(255 * (1 - (progress - 0.7) / 0.3))
+
+            # Pulsation du texte
+            pulse = 1.0 + math.sin(self.boss_intro_timer / 120) * 0.1
+            font_size = int(80 * pulse)
+            try:
+                font_combat = pygame.font.Font(str(FONT_METAL_MANIA), font_size)
+            except (pygame.error, FileNotFoundError):
+                font_combat = pygame.font.Font(None, font_size)
+
+            combat_surf = font_combat.render("AU COMBAT !", True, YELLOW)
+            combat_surf.set_alpha(sub_alpha)
+            shadow2 = font_combat.render("AU COMBAT !", True, (80, 50, 0))
+            shadow2.set_alpha(sub_alpha)
+            combat_rect = combat_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+            screen.blit(shadow2, combat_rect.move(3, 3))
+            screen.blit(combat_surf, combat_rect)
+
+        # Barres decoratives en haut et en bas (style cinematique)
+        bar_height = 60
+        if progress < 0.15:
+            bar_alpha = int(255 * (progress / 0.15))
+        elif progress > 0.75:
+            bar_alpha = int(255 * (1 - (progress - 0.75) / 0.25))
+        else:
+            bar_alpha = 255
+
+        bar_surf = pygame.Surface((WIDTH, bar_height), pygame.SRCALPHA)
+        bar_surf.fill((0, 0, 0, bar_alpha))
+        screen.blit(bar_surf, (0, 0))
+        screen.blit(bar_surf, (0, HEIGHT - bar_height))
 
     def _draw_celebration(self, screen):
         """Dessine l'animation de mort du boss et le menu de victoire"""
