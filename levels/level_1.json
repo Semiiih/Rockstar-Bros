@@ -113,6 +113,10 @@
                 {"x": 3450, "y": 340, "type": "note"}
             ],
 
+            "mystery_blocks": [
+                {"x": 1675, "y": 100}
+            ],
+
             "boss": null
         },
         {

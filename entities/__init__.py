@@ -8,6 +8,8 @@ from entities.projectile import Projectile, BossProjectile
 from entities.enemy import Enemy, Boss
 from entities.platform import Platform
 from entities.pickup import Pickup
+from entities.mystery_block import MysteryBlock
+from entities.star_item import StarItem
 
 __all__ = [
     'Player',
@@ -17,4 +19,6 @@ __all__ = [
     'Boss',
     'Platform',
     'Pickup',
+    'MysteryBlock',
+    'StarItem',
 ]
