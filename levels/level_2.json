@@ -149,7 +149,7 @@
         },
         {
             "stage_id": 3,
-            "name": "Boss - La Star Dechu",
+            "name": "La Star Dechu",
             "width": 1400,
             "background": "bg_boss2.png",
             "music": "combat_final.wav",

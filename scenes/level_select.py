@@ -323,10 +323,10 @@ class LevelSelectScene(Scene):
             self._draw_background(screen)
 
         # Titre
-        title = self.font_title.render("SELECT YOUR STAGE", True, WHITE)
+        title = self.font_title.render("SÉLECTIONNEZ VOTRE NIVEAU", True, WHITE)
         title_rect = title.get_rect(center=(WIDTH // 2, 80))
         # Ombre du titre
-        title_shadow = self.font_title.render("SELECT YOUR STAGE", True, BLACK)
+        title_shadow = self.font_title.render("SÉLECTIONNEZ VOTRE NIVEAU", True, BLACK)
         screen.blit(title_shadow, (title_rect.x + 3, title_rect.y + 3))
         screen.blit(title, title_rect)
 
