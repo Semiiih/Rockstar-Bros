@@ -1,6 +1,6 @@
 {
     "id": 1,
-    "name": "Les Coulisses",
+    "name": "La Nuit du Concert",
     "description": "Tes premiers pas vers la gloire rock!",
     "difficulty": "easy",
     "icon": "level1_icon.png",
@@ -9,7 +9,7 @@
     "stages": [
         {
             "stage_id": 1,
-            "name": "Backstage",
+            "name": "En ville",
             "width": 3000,
             "background": "bg_level1.png",
             "music": "level1.wav",
@@ -57,7 +57,7 @@
         },
         {
             "stage_id": 2,
-            "name": "Entree en scene",
+            "name": "Entrée en concert",
             "width": 4000,
             "background": "bg_level2.png",
             "music": "level1.wav",
@@ -117,7 +117,7 @@
         },
         {
             "stage_id": 3,
-            "name": "Boss - Le Rival",
+            "name": "Le Rival",
             "width": 1200,
             "background": "bg_boss.png",
             "music": "combat_final.wav",

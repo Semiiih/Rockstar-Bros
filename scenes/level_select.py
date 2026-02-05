@@ -278,10 +278,10 @@ class LevelSelectScene(Scene):
             self._draw_background(screen)
 
         # Titre
-        title = self.font_title.render("SELECT YOUR STAGE", True, WHITE)
+        title = self.font_title.render("SÉLECTIONNEZ VOTRE NIVEAU", True, WHITE)
         title_rect = title.get_rect(center=(WIDTH // 2, 80))
         # Ombre du titre
-        title_shadow = self.font_title.render("SELECT YOUR STAGE", True, BLACK)
+        title_shadow = self.font_title.render("SÉLECTIONNEZ VOTRE NIVEAU", True, BLACK)
         screen.blit(title_shadow, (title_rect.x + 3, title_rect.y + 3))
         screen.blit(title, title_rect)
 
@@ -297,7 +297,7 @@ class LevelSelectScene(Scene):
             self._draw_level_info(screen, self.selected_node)
 
         # Instructions
-        instructions = self.font_small.render("Click on a level to start - ESC to go back", True, WHITE)
+        instructions = self.font_small.render("Cliquez sur un niveau pour commencer - ESC pour revenir en arrière", True, WHITE)
         inst_rect = instructions.get_rect(center=(WIDTH // 2, HEIGHT - 30))
         screen.blit(instructions, inst_rect)
 
