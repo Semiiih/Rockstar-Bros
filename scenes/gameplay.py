@@ -29,7 +29,7 @@ from settings import (
     SND_DIR, SND_VICTORY, SND_JUMP, SND_SHOOT, SND_PICKUP,
     SND_ENEMY_DEATH, SND_DEATH, SND_HURT, SND_MENU_CLICK,
     SND_CROUCH, SND_RUN,
-    SND_BOSS_LAUGH_12, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS,
+    SND_BOSS_LAUGH_1, SND_BOSS_LAUGH_2, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS,
 )
 
 
@@ -117,6 +117,10 @@ class GameplayScene(Scene):
         # Animation timer pour effets visuels
         self.animation_time = 0
 
+        # Star mode music (Easter Egg)
+        self.current_music_path = None  # Chemin de la musique actuelle
+        self.star_mode_music_active = False  # Flag pour la musique acceleree
+
         # Sons d'effets (SFX)
         self.sfx = {}
         self._load_sfx()
@@ -140,7 +144,8 @@ class GameplayScene(Scene):
             "menu_click": SND_MENU_CLICK,
             "crouch": SND_CROUCH,
             "run": SND_RUN,
-            "boss_laugh_12": SND_BOSS_LAUGH_12,
+            "boss_laugh_1": SND_BOSS_LAUGH_1,
+            "boss_laugh_2": SND_BOSS_LAUGH_2,
             "boss_laugh_3": SND_BOSS_LAUGH_3,
             "shoot_boss": SND_SHOOT_BOSS,
         }
@@ -155,6 +160,10 @@ class GameplayScene(Scene):
         # Volume plus fort pour le son de course
         if self.sfx.get("run"):
             self.sfx["run"].set_volume(0.8)
+
+        # Volume maximum pour le son de chute/mort
+        if self.sfx.get("death"):
+            self.sfx["death"].set_volume(1.0)  # Volume max (1.0 = 100%)
 
     def _play_sfx(self, name):
         """Joue un effet sonore"""
@@ -174,12 +183,28 @@ class GameplayScene(Scene):
         """Arrete tous les sons du boss (rire, tir)"""
         self._boss_laugh_timer = 0
         self._boss_laugh_type = None
-        if self.sfx.get("boss_laugh_12"):
-            self.sfx["boss_laugh_12"].stop()
+        if self.sfx.get("boss_laugh_1"):
+            self.sfx["boss_laugh_1"].stop()
+        if self.sfx.get("boss_laugh_2"):
+            self.sfx["boss_laugh_2"].stop()
         if self.sfx.get("boss_laugh_3"):
             self.sfx["boss_laugh_3"].stop()
         if self.sfx.get("shoot_boss"):
             self.sfx["shoot_boss"].stop()
+
+    def _start_star_mode_music(self):
+        """Active l'effet musical du star mode (volume boost + restart)"""
+        if self.current_music_path and not self.star_mode_music_active:
+            self.star_mode_music_active = True
+            # Augmenter le volume et relancer la musique pour un effet "power up"
+            pygame.mixer.music.set_volume(0.9)  # Volume plus fort
+
+    def _stop_star_mode_music(self):
+        """Restaure la musique normale apres le star mode"""
+        if self.star_mode_music_active:
+            self.star_mode_music_active = False
+            # Restaurer le volume normal
+            pygame.mixer.music.set_volume(0.5)
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
@@ -215,6 +240,10 @@ class GameplayScene(Scene):
         self.pickups.empty()
         self.mystery_blocks.empty()
         self.star_items.empty()
+
+        # Reset des flags de mort par chute
+        self.game.game_data["death_by_fall"] = False
+        self.game.game_data["fall_sound_played"] = False
 
         # Obtenir la position de spawn du joueur depuis le stage
         spawn_x = 100
@@ -296,6 +325,7 @@ class GameplayScene(Scene):
             music_file = self.stage_data.get('music')
             if music_file:
                 music_path = str(SND_DIR / music_file)
+                self.current_music_path = music_path  # Sauvegarder pour star mode
                 try:
                     pygame.mixer.music.load(music_path)
                 except pygame.error:
@@ -614,6 +644,11 @@ class GameplayScene(Scene):
         # Mise a jour des entites
         self.player.update(dt, self.platforms)
 
+        # Detecter la fin du star mode pour restaurer la musique
+        if self.player.star_mode_just_ended:
+            self._stop_star_mode_music()
+            self.player.star_mode_just_ended = False
+
         # Empecher le joueur de sortir des bords du niveau
         # Bord gauche: toujours bloque
         if self.player.rect.left < 0:
@@ -655,28 +690,29 @@ class GameplayScene(Scene):
             else:
                 enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.enemy_projectiles)
 
-        # Timer pour le rire du boss
+        # Empecher les ennemis de se chevaucher
+        self._resolve_enemy_collisions()
+
+        # Verifier les chutes dans le vide EN PREMIER (avant le timer du rire)
+        self._check_fall_death()
+
+        # Timer pour le rire du boss (ne pas jouer si le joueur est mort)
         if self._boss_laugh_timer > 0:
             self._boss_laugh_timer -= dt_ms
             if self._boss_laugh_timer <= 0:
-                # Jouer le rire selon le type de boss (une seule fois)
-                if self._boss_laugh_type == "boss3":
-                    sound = self.sfx.get("boss_laugh_3")
-                    if sound:
-                        sound.stop()  # Arreter si deja en cours
-                        sound.play()
-                else:
-                    sound = self.sfx.get("boss_laugh_12")
+                # Ne jouer le rire que si le joueur est encore en vie
+                if self.player.health > 0:
+                    # Jouer le rire selon le type de boss (chaque boss a son propre rire)
+                    if self._boss_laugh_type == "boss3":
+                        sound = self.sfx.get("boss_laugh_3")
+                    elif self._boss_laugh_type == "boss2":
+                        sound = self.sfx.get("boss_laugh_2")
+                    else:
+                        sound = self.sfx.get("boss_laugh_1")
                     if sound:
                         sound.stop()  # Arreter si deja en cours
                         sound.play()
                 self._boss_laugh_type = None
-
-        # Empecher les ennemis de se chevaucher
-        self._resolve_enemy_collisions()
-
-        # Verifier les chutes dans le vide
-        self._check_fall_death()
 
         # Collisions
         self._check_collisions()
@@ -737,11 +773,33 @@ class GameplayScene(Scene):
 
     def _check_fall_death(self):
         """Verifie si des entites sont tombees dans le vide"""
-        fall_limit = HEIGHT + 50  # En dessous de l'ecran
+        # Son de chute declenche des que le joueur passe sous le sol (entre dans le trou)
+        sound_trigger = GROUND_Y  # Des qu'il passe sous le niveau du sol
+        # Mort effective quand le joueur est completement hors ecran
+        fall_limit = HEIGHT + 50
 
-        # Joueur tombe dans le vide
-        if self.player.rect.top > fall_limit:
+        # Joueur entre dans le trou - jouer le son immediatement
+        if self.player.rect.top > sound_trigger and not self.game.game_data.get("fall_sound_played", False):
+            # Arreter la musique de fond
+            pygame.mixer.music.stop()
+            # Jouer le son de chute
             self._play_sfx("death")
+            self.game.game_data["fall_sound_played"] = True
+            # Marquer que c'est une mort par chute (pas de rire du boss sur game over)
+            self.game.game_data["death_by_fall"] = True
+            # Annuler le rire du boss et arreter le son s'il joue
+            self._boss_laugh_timer = 0
+            self._boss_laugh_type = None
+            # Arreter les sons de rire s'ils sont en cours
+            if self.sfx.get("boss_laugh_1"):
+                self.sfx["boss_laugh_1"].stop()
+            if self.sfx.get("boss_laugh_2"):
+                self.sfx["boss_laugh_2"].stop()
+            if self.sfx.get("boss_laugh_3"):
+                self.sfx["boss_laugh_3"].stop()
+
+        # Joueur tombe dans le vide - mort effective
+        if self.player.rect.top > fall_limit:
             self.player.health = 0  # Mort instantanee
 
         # Ennemis tombent dans le vide
@@ -918,6 +976,8 @@ class GameplayScene(Scene):
                 self.player.activate_star_mode()
                 star.kill()
                 self._play_sfx("pickup")
+                # Activer la musique acceleree (effet star power)
+                self._start_star_mode_music()
 
         # Easter Egg: Star mode contact kill
         if self.player.star_mode:

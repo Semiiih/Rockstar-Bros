@@ -77,6 +77,7 @@ class Player(pygame.sprite.Sprite):
         self.star_mode = False
         self.star_mode_timer = 0
         self.star_mode_flash_timer = 0
+        self.star_mode_just_ended = False  # Flag pour detecter la fin du star mode
 
     def _load_images(self):
         """Charge les images du joueur"""
@@ -267,6 +268,7 @@ class Player(pygame.sprite.Sprite):
             if self.star_mode_timer <= 0:
                 self.star_mode = False
                 self.star_mode_timer = 0
+                self.star_mode_just_ended = True  # Signal pour restaurer la musique
 
         # Animation
         self._update_animation(dt_ms)
