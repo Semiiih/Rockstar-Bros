@@ -29,6 +29,7 @@ from settings import (
     SND_DIR, SND_VICTORY, SND_JUMP, SND_SHOOT, SND_PICKUP,
     SND_ENEMY_DEATH, SND_DEATH, SND_HURT, SND_MENU_CLICK,
     SND_CROUCH, SND_RUN,
+    SND_BOSS_LAUGH_12, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS,
 )
 
 
@@ -119,6 +120,10 @@ class GameplayScene(Scene):
         # Flag pour le son de course en boucle
         self._run_sfx_playing = False
 
+        # Timer pour le rire du boss (declenche 1 seconde apres avoir touche le joueur)
+        self._boss_laugh_timer = 0
+        self._boss_laugh_type = None  # "boss"/"boss2" ou "boss3"
+
     def _load_sfx(self):
         """Charge les effets sonores"""
         sfx_files = {
@@ -131,6 +136,9 @@ class GameplayScene(Scene):
             "menu_click": SND_MENU_CLICK,
             "crouch": SND_CROUCH,
             "run": SND_RUN,
+            "boss_laugh_12": SND_BOSS_LAUGH_12,
+            "boss_laugh_3": SND_BOSS_LAUGH_3,
+            "shoot_boss": SND_SHOOT_BOSS,
         }
         for key, filename in sfx_files.items():
             try:
@@ -157,6 +165,17 @@ class GameplayScene(Scene):
             if run_sound:
                 run_sound.stop()
             self._run_sfx_playing = False
+
+    def _stop_boss_sfx(self):
+        """Arrete tous les sons du boss (rire, tir)"""
+        self._boss_laugh_timer = 0
+        self._boss_laugh_type = None
+        if self.sfx.get("boss_laugh_12"):
+            self.sfx["boss_laugh_12"].stop()
+        if self.sfx.get("boss_laugh_3"):
+            self.sfx["boss_laugh_3"].stop()
+        if self.sfx.get("shoot_boss"):
+            self.sfx["shoot_boss"].stop()
 
     def enter(self, **kwargs):
         """Initialisation a l'entree dans le niveau"""
@@ -603,8 +622,29 @@ class GameplayScene(Scene):
         for enemy in self.enemies:
             if isinstance(enemy, Boss):
                 enemy.update(dt, self.player.rect, self.boss_projectiles)
+                # Son de tir du boss
+                if enemy.just_attacked:
+                    self._play_sfx("shoot_boss")
+                    enemy.just_attacked = False
             else:
                 enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.enemy_projectiles)
+
+        # Timer pour le rire du boss
+        if self._boss_laugh_timer > 0:
+            self._boss_laugh_timer -= dt_ms
+            if self._boss_laugh_timer <= 0:
+                # Jouer le rire selon le type de boss (une seule fois)
+                if self._boss_laugh_type == "boss3":
+                    sound = self.sfx.get("boss_laugh_3")
+                    if sound:
+                        sound.stop()  # Arreter si deja en cours
+                        sound.play()
+                else:
+                    sound = self.sfx.get("boss_laugh_12")
+                    if sound:
+                        sound.stop()  # Arreter si deja en cours
+                        sound.play()
+                self._boss_laugh_type = None
 
         # Empecher les ennemis de se chevaucher
         self._resolve_enemy_collisions()
@@ -631,6 +671,7 @@ class GameplayScene(Scene):
         # Verifier game over
         if self.player.health <= 0:
             self._stop_run_sfx()
+            self._stop_boss_sfx()
             self.game.game_data["score"] = self.game.game_data.get("score", 0)
             self.game.change_scene(STATE_GAME_OVER)
 
@@ -774,6 +815,11 @@ class GameplayScene(Scene):
                 if self.player.take_damage(proj.damage):
                     self._play_sfx("hurt")
                     self.game.game_data["lives"] = self.player.health
+                    # Declencher le rire du boss 1 seconde apres avoir touche le joueur
+                    # Seulement si le joueur est encore en vie ET si pas deja en attente
+                    if self.boss and self.player.health > 0 and self._boss_laugh_timer <= 0:
+                        self._boss_laugh_timer = 1000  # 1 seconde
+                        self._boss_laugh_type = getattr(self.boss, 'boss_type', 'boss')
 
         # Projectiles ennemis -> Joueur
         for proj in self.enemy_projectiles:
