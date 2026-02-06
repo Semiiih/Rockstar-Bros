@@ -29,7 +29,7 @@ from settings import (
     SND_DIR, SND_VICTORY, SND_JUMP, SND_SHOOT, SND_PICKUP,
     SND_ENEMY_DEATH, SND_DEATH, SND_HURT, SND_MENU_CLICK,
     SND_CROUCH, SND_RUN,
-    SND_BOSS_LAUGH_1, SND_BOSS_LAUGH_2, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS,
+    SND_BOSS_LAUGH_1, SND_BOSS_LAUGH_2, SND_BOSS_LAUGH_3, SND_SHOOT_BOSS, SND_BOSS_STEPS,
 )
 
 
@@ -127,6 +127,7 @@ class GameplayScene(Scene):
 
         # Flag pour le son de course en boucle
         self._run_sfx_playing = False
+        self._boss_steps_playing = False
 
         # Timer pour le rire du boss (declenche 1 seconde apres avoir touche le joueur)
         self._boss_laugh_timer = 0
@@ -153,6 +154,7 @@ class GameplayScene(Scene):
             "boss_laugh_2": SND_BOSS_LAUGH_2,
             "boss_laugh_3": SND_BOSS_LAUGH_3,
             "shoot_boss": SND_SHOOT_BOSS,
+            "boss_steps": SND_BOSS_STEPS,
         }
         for key, filename in sfx_files.items():
             try:
@@ -196,6 +198,15 @@ class GameplayScene(Scene):
             self.sfx["boss_laugh_3"].stop()
         if self.sfx.get("shoot_boss"):
             self.sfx["shoot_boss"].stop()
+        self._stop_boss_steps_sfx()
+
+    def _stop_boss_steps_sfx(self):
+        """Arrete le son de pas du boss"""
+        if self._boss_steps_playing:
+            boss_steps = self.sfx.get("boss_steps")
+            if boss_steps:
+                boss_steps.stop()
+            self._boss_steps_playing = False
 
     def _start_star_mode_music(self):
         """Active l'effet musical du star mode (volume boost + restart)"""
@@ -706,6 +717,15 @@ class GameplayScene(Scene):
                 if enemy.just_attacked:
                     self._play_sfx("shoot_boss")
                     enemy.just_attacked = False
+                # Son de pas du boss (en boucle quand il marche)
+                if enemy.is_moving and enemy.health > 0:
+                    if not self._boss_steps_playing:
+                        boss_steps = self.sfx.get("boss_steps")
+                        if boss_steps:
+                            boss_steps.play(-1)  # -1 = boucle infinie
+                            self._boss_steps_playing = True
+                else:
+                    self._stop_boss_steps_sfx()
             else:
                 enemy.update(dt, self.player.rect, self.platforms, normal_enemies, self.enemy_projectiles)
 
@@ -961,6 +981,10 @@ class GameplayScene(Scene):
                     if self.player.take_damage(enemy.damage):
                         self._play_sfx("hurt")
                         self.game.game_data["lives"] = self.player.health
+                        # Declencher le rire du boss 1 seconde apres avoir touche le joueur
+                        if isinstance(enemy, Boss) and self.player.health > 0 and self._boss_laugh_timer <= 0:
+                            self._boss_laugh_timer = 1000  # 1 seconde
+                            self._boss_laugh_type = getattr(enemy, 'boss_type', 'boss')
                         # Decaler le joueur de quelques pixels pour eviter la superposition
                         # Direction: vers le dos du joueur (oppose a la direction qu'il regarde)
                         if self.player.rect.centerx < enemy.rect.centerx:

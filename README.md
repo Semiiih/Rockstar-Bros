@@ -242,5 +242,3 @@ Tu es maintenant prêt à coder sur Rockstar-Bros. N'oublie pas :
 1. ✅ Toujours activer le venv avant de travailler
 2. ✅ Faire `git pull` et `pip install -r requirements.txt` régulièrement
 3. ✅ Suivre la procédure complète quand tu ajoutes une librairie
-
-Bon développement ! 🚀

@@ -70,14 +70,17 @@ class GameOverScene(Scene):
                     laugh_sound = SND_BOSS_LAUGH_3
 
                 music_path = str(SND_DIR / laugh_sound)
+                print(f"[GameOver] Playing boss laugh: {music_path}")
                 try:
                     pygame.mixer.music.load(music_path)
                 except pygame.error:
                     pygame.mixer.music.load(music_path, namehint=".mp3")
                 pygame.mixer.music.set_volume(0.6)
                 pygame.mixer.music.play()  # Jouer une seule fois (pas en boucle)
-            except (pygame.error, FileNotFoundError):
-                pass
+            except (pygame.error, FileNotFoundError) as e:
+                print(f"[GameOver] Error playing boss laugh: {e}")
+        else:
+            print(f"[GameOver] Skipping boss laugh (death_by_fall={death_by_fall})")
 
         # Charger l'image de game over
         try:

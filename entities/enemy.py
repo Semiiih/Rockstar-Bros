@@ -308,18 +308,15 @@ class Enemy(pygame.sprite.Sprite):
                         if self.on_ground:
                             break
 
-        # Verifier si un autre ennemi est trop proche (pour eviter l'oscillation)
         blocked_left = False
         blocked_right = False
         if other_enemies:
             for other in other_enemies:
                 if other is self or other.is_dead:
                     continue
-                # Distance entre les deux ennemis
                 dist = abs(self.rect.centerx - other.rect.centerx)
                 min_dist = (self.rect.width + other.rect.width) // 2 + 15
                 if dist < min_dist:
-                    # Bloquer le mouvement vers l'autre ennemi
                     if other.rect.centerx < self.rect.centerx:
                         blocked_left = True
                     else:
