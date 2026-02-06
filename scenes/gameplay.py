@@ -260,15 +260,10 @@ class GameplayScene(Scene):
 
         # Creer le joueur
         self.player = Player(character_id, spawn_x, spawn_y)
-        # Si c'est le premier stage d'un niveau, remettre les vies au max
-        if self.current_stage_id == 1:
-            self.player.health = PLAYER_MAX_HEALTH
-            self.game.game_data["lives"] = PLAYER_MAX_HEALTH
-            self.player.ultimate_charge = 0
-            self.game.game_data["ultimate_charge"] = 0
-        else:
-            self.player.health = self.game.game_data["lives"]
-            self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
+        # Utiliser les vies sauvegardees dans game_data (gerees par game_over)
+        # game_data["lives"] est deja set a 3 par game_over ou par reset_game
+        self.player.health = self.game.game_data.get("lives", PLAYER_MAX_HEALTH)
+        self.player.ultimate_charge = self.game.game_data.get("ultimate_charge", 0)
         self.all_sprites.add(self.player)
 
         # Charger le stage depuis la config

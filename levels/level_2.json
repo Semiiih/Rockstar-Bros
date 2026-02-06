@@ -12,7 +12,7 @@
             "name": "Les Stands",
             "width": 3500,
             "background": "bg_level2_1.png",
-            "music": "level1.wav",
+            "music": "level2.wav",
             "player_spawn": {"x": 100, "y": 600},
 
             "ground_segments": [
@@ -75,7 +75,7 @@
             "name": "La Grande Scene",
             "width": 4500,
             "background": "bg_level2_2.png",
-            "music": "level1.wav",
+            "music": "level2.wav",
             "player_spawn": {"x": 100, "y": 600},
 
             "ground_segments": [

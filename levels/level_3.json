@@ -91,7 +91,7 @@
       "name": "Le Terrain",
       "width": 5000,
       "background": "bg_level3_2.png",
-      "music": "level1.wav",
+      "music": "level3.wav",
       "player_spawn": { "x": 100, "y": 600 },
 
       "ground_segments": [
@@ -185,7 +185,7 @@
     },
     {
       "stage_id": 3,
-      "name": "Boss - Le Champion",
+      "name": "Le Champion",
       "width": 1600,
       "background": "bg_boss3.png",
       "music": "combat_final.wav",
@@ -195,7 +195,7 @@
       "ground_segments": [{ "x": 0, "y": 600, "width": 1600 }],
 
       "platforms": [
-        { "x": 100, "y": 480, "width": 150, "height": 30 },
+        { "x": 150, "y": 480, "width": 150, "height": 30 },
         { "x": 350, "y": 380, "width": 180, "height": 30 },
         { "x": 600, "y": 280, "width": 200, "height": 30 },
         { "x": 900, "y": 380, "width": 180, "height": 30 },

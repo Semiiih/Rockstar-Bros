@@ -444,6 +444,10 @@ class LevelSelectScene(Scene):
         # Sauvegarder le niveau selectionne
         self.game.game_data['selected_level'] = level_id
         self.game.game_data['current_stage'] = 1
+        # Reset les vies, score et ultime pour un nouveau niveau
+        self.game.game_data['lives'] = 3
+        self.game.game_data['score'] = 0
+        self.game.game_data['ultimate_charge'] = 0
 
         # Aller a la scene de gameplay
         self.game.change_scene(STATE_GAMEPLAY, level_id=level_id, stage_id=1)
